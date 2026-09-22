@@ -1,0 +1,6 @@
+.DS_Store
+.claude/settings.local.json
+
+# Answer-key material — never publish
+dev/
+tools/out/
