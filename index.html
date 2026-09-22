@@ -7,7 +7,12 @@
 <!-- No external scripts, stylesheets or fonts, ever. A third-party origin
      could read answers or inject code; zero dependencies is a security
      property worth keeping deliberately. -->
-<link rel="stylesheet" href="css/exam.css">
+<!-- ?v= is a cache buster, and it is load-bearing. Browsers hold on to CSS
+     and JS aggressively; without it a reload can silently run an old
+     stylesheet against new markup, which is exactly what happened while
+     building the sticky footer. Bump this date-stamp on EVERY css/ or js/
+     change — all eight references below must match. -->
+<link rel="stylesheet" href="css/exam.css?v=20260921a">
 </head>
 <body>
 
@@ -184,12 +189,12 @@
   </div>
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/api.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/state.js"></script>
-<script src="js/navigator.js"></script>
-<script src="js/exam.js"></script>
-<script src="js/review.js"></script>
+<script src="js/config.js?v=20260921a"></script>
+<script src="js/api.js?v=20260921a"></script>
+<script src="js/ui.js?v=20260921a"></script>
+<script src="js/state.js?v=20260921a"></script>
+<script src="js/navigator.js?v=20260921a"></script>
+<script src="js/exam.js?v=20260921a"></script>
+<script src="js/review.js?v=20260921a"></script>
 </body>
 </html>

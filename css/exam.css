@@ -44,7 +44,7 @@ h1{font-size:22px;font-weight:500;margin-bottom:4px;}
 
 /* ── Cards, notices ──────────────────────────────────────────────────── */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-  padding:1.75rem;margin-bottom:1rem;}
+  padding:1.5rem 1.75rem;margin-bottom:1rem;}
 .card-title{font-size:15px;font-weight:500;}
 .banner{background:var(--amber-lt);color:#633806;font-size:13px;padding:8px 16px;text-align:center;}
 .banner code{font-family:ui-monospace,Menlo,monospace;}
@@ -89,22 +89,22 @@ kbd{display:inline-block;padding:1px 5px;border:1px solid var(--line-2);border-b
 .progress-wrap{background:#E5E4E0;height:3px;overflow:hidden;}
 .progress-fill{height:3px;background:var(--blue);transition:width .3s;}
 
-#exam-screen main{padding-top:1.5rem;}
+#exam-screen main{padding-top:1.25rem;}
 
 /* ── Question ────────────────────────────────────────────────────────── */
 .q-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
-  margin-bottom:14px;flex-wrap:wrap;}
+  margin-bottom:10px;flex-wrap:wrap;}
 .q-heading{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
   white-space:nowrap;}
 .q-counter{font-size:12px;font-weight:500;color:var(--ink-2);text-transform:uppercase;
   letter-spacing:.05em;}
-.q-stem{font-size:17px;line-height:1.7;margin-bottom:20px;}
+.q-stem{font-size:17px;line-height:1.65;margin-bottom:18px;}
 .flag-btn{font-size:12px;color:var(--amber);background:none;border:1px solid transparent;
   border-radius:6px;padding:4px 8px;cursor:pointer;font-family:inherit;display:inline-flex;gap:5px;}
 .flag-btn:hover{background:var(--amber-lt);}
 .flag-btn.on{background:var(--amber-lt);border-color:var(--amber-br);font-weight:500;}
 
-.choices{display:flex;flex-direction:column;gap:8px;}
+.choices{display:flex;flex-direction:column;gap:7px;}
 .choice{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
   background:var(--bg);border:1.5px solid var(--line-2);border-radius:8px;
   font-size:16px;line-height:1.55;cursor:pointer;transition:border-color .12s,background .12s;}
@@ -123,6 +123,17 @@ kbd{display:inline-block;padding:1px 5px;border:1px solid var(--line-2);border-b
 
 .nav-row{display:flex;justify-content:space-between;align-items:center;gap:8px;
   padding-top:1rem;padding-bottom:2.5rem;flex-wrap:wrap;}
+
+/* Previous/Next pinned to the bottom of the window during the exam.
+   Measured at 962x760: 33 of 55 questions pushed these buttons below the
+   fold, so most of the exam needed a scroll just to advance. Centering
+   cannot fix that (content taller than the window has no visible position)
+   and widening the column would cost readability, so the bar sticks and the
+   question scrolls underneath it. */
+#exam-screen .nav-row{position:sticky;bottom:0;z-index:15;
+  background:rgba(245,245,243,.96);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);
+  padding-top:12px;padding-bottom:12px;margin-top:1.25rem;}
 
 /* ── Domain badges (derived index, never hand-authored) ──────────────── */
 .domain-badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;}
