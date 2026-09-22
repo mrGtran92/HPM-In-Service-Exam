@@ -1,10 +1,158 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HPM Fellow In-Service Exam</title>
-<link rel="stylesheet" href="css/exam.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:#F5F5F3;color:#1C1C1C;min-height:100vh;padding:2rem 1rem;}
+.container{max-width:740px;margin:0 auto;}
+h1{font-size:22px;font-weight:500;color:#1C1C1C;margin-bottom:4px;}
+.subtitle{font-size:13px;color:#6B6560;margin-bottom:2rem;}
+.card{background:#fff;border:1px solid #E0DEDA;border-radius:12px;padding:1.75rem;margin-bottom:1rem;}
+.btn{padding:9px 20px;font-size:14px;border-radius:8px;border:1px solid #DEDAD7;background:transparent;color:#1C1C1C;cursor:pointer;transition:background 0.15s;}
+.btn:hover{background:#F0EFEB;}
+.btn.primary{background:#185FA5;color:#fff;border-color:#185FA5;}
+.btn.primary:hover{background:#0C447C;}
+.btn.danger{background:#A32D2D;color:#fff;border-color:#A32D2D;}
+.btn.danger:hover{background:#791F1F;}
+.btn.active-tab{background:#185FA5;color:#fff;border-color:#185FA5;}
+.btn:disabled{opacity:0.35;cursor:default;}
+.hidden{display:none!important;}
+
+/* Form */
+.field-label{font-size:14px;color:#6B6560;margin-bottom:6px;}
+.text-input{width:100%;padding:9px 12px;font-size:14px;border:1px solid #DEDAD7;border-radius:8px;outline:none;margin-bottom:4px;background:#fff;color:#1C1C1C;}
+.text-input:focus{border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,0.12);}
+.text-input.error{border-color:#A32D2D;box-shadow:0 0 0 3px rgba(163,45,45,0.12);}
+.field-error{font-size:12px;color:#A32D2D;margin-bottom:10px;min-height:16px;}
+.field-hint{font-size:12px;color:#6B6560;margin-bottom:10px;}
+
+/* Progress */
+.progress-wrap{background:#E5E4E0;border-radius:99px;height:4px;margin:1rem 0 0.4rem;overflow:hidden;}
+.progress-fill{height:4px;background:#185FA5;border-radius:99px;transition:width 0.3s;}
+.progress-label{font-size:12px;color:#6B6560;display:flex;justify-content:space-between;margin-bottom:1.25rem;}
+
+/* Exam navigator */
+.navigator{margin-bottom:1.25rem;}
+.nav-label{font-size:11px;font-weight:500;color:#6B6560;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;}
+.nav-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.nav-dot{width:32px;height:32px;border-radius:50%;border:1.5px solid #DEDAD7;background:#fff;font-size:12px;font-weight:500;color:#6B6560;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.12s;flex-shrink:0;}
+.nav-dot:hover{border-color:#185FA5;color:#185FA5;}
+.nav-dot.answered{background:#185FA5;border-color:#185FA5;color:#fff;}
+.nav-dot.current{border-color:#185FA5;color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,0.18);}
+.nav-dot.current.answered{background:#185FA5;color:#fff;box-shadow:0 0 0 3px rgba(24,95,165,0.18);}
+.nav-dot.flagged{border-color:#BA7517;color:#BA7517;}
+.nav-dot.flagged.answered{background:#BA7517;border-color:#BA7517;color:#fff;}
+
+/* Domain badge */
+.domain-badge{display:inline-block;font-size:11px;font-weight:500;padding:3px 10px;border-radius:99px;margin-bottom:14px;}
+.domain-pain{background:#E6F1FB;color:#0C447C;}
+.domain-nonsymptom{background:#E1F5EE;color:#085041;}
+.domain-comms{background:#EEEDFE;color:#3C3489;}
+.domain-hospice{background:#FAEEDA;color:#633806;}
+.domain-ethics{background:#FAECE7;color:#712B13;}
+.domain-psych{background:#FBEAF0;color:#72243E;}
+
+/* Question */
+.q-num{font-size:12px;color:#6B6560;margin-bottom:6px;}
+.q-stem{font-size:15px;line-height:1.75;margin-bottom:16px;}
+.q-lead{font-size:15px;font-weight:500;margin-bottom:16px;}
+.choices{display:flex;flex-direction:column;gap:8px;}
+.choice-btn{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;width:100%;text-align:left;cursor:pointer;background:#F5F5F3;border:1.5px solid #DEDAD7;border-radius:8px;font-size:14px;line-height:1.5;color:#1C1C1C;transition:border-color 0.12s,background 0.12s,box-shadow 0.12s;}
+.choice-btn:hover:not(:disabled):not(.selected):not(.correct):not(.incorrect){border-color:#B0ACA8;background:#fff;}
+.choice-btn:disabled{cursor:default;}
+.choice-letter{font-weight:500;min-width:20px;color:#6B6560;flex-shrink:0;}
+.choice-text{flex:1;}
+.choice-btn.selected{border:2.5px solid #185FA5;background:#E6F1FB;box-shadow:0 0 0 3px rgba(24,95,165,0.12);}
+.choice-btn.selected .choice-letter{color:#185FA5;}
+.choice-btn.correct{border:2px solid #0F6E56;background:#E1F5EE;}
+.choice-btn.correct .choice-letter{color:#0F6E56;}
+.choice-btn.incorrect{border:2px solid #A32D2D;background:#FCEBEB;}
+.choice-btn.incorrect .choice-letter{color:#A32D2D;}
+.result-icon{margin-left:auto;padding-left:8px;flex-shrink:0;font-size:16px;}
+.flag-row{display:flex;justify-content:flex-end;margin-top:8px;}
+.flag-btn{font-size:12px;color:#BA7517;background:none;border:none;cursor:pointer;padding:4px 0;}
+
+/* Nav row */
+.nav-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:1rem;flex-wrap:wrap;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal{background:#fff;border-radius:12px;padding:2rem;max-width:420px;width:90%;}
+.modal h2{font-size:17px;font-weight:500;margin-bottom:10px;}
+.modal p{font-size:14px;color:#6B6560;line-height:1.6;margin-bottom:1.25rem;}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+
+/* Score card */
+.score-card{background:#fff;border:1px solid #E0DEDA;border-radius:12px;padding:2rem;text-align:center;margin-bottom:1rem;}
+.score-big{font-size:56px;font-weight:500;color:#185FA5;line-height:1;}
+.score-label{font-size:14px;color:#6B6560;margin-bottom:1.5rem;}
+.domain-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #E0DEDA;font-size:14px;}
+.domain-row:last-child{border-bottom:none;}
+.pill{font-size:12px;font-weight:500;padding:3px 10px;border-radius:99px;}
+.pill-strong{background:#E1F5EE;color:#085041;}
+.pill-mid{background:#FAEEDA;color:#633806;}
+.pill-weak{background:#FCEBEB;color:#A32D2D;}
+
+/* Submit status */
+.submit-status{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:1rem;}
+.submit-status.success{background:#E1F5EE;color:#085041;}
+.submit-status.error{background:#FCEBEB;color:#A32D2D;}
+.submit-status.pending{background:#FAEEDA;color:#633806;}
+
+/* ── Summary grid ── */
+.summary-section{margin-bottom:1rem;}
+.summary-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.summary-header-title{font-size:15px;font-weight:500;}
+.tab-row{display:flex;gap:6px;flex-wrap:wrap;}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px;}
+.q-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border-radius:10px;cursor:pointer;border:2px solid transparent;transition:transform 0.1s,box-shadow 0.1s;gap:4px;}
+.q-tile:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.10);}
+.q-tile.correct{background:#E1F5EE;border-color:#5DCAA5;}
+.q-tile.incorrect{background:#FCEBEB;border-color:#F09595;}
+.q-tile.flagged-tile{background:#FAEEDA;border-color:#FAC775;}
+.q-tile.skipped{background:#F5F5F3;border-color:#DEDAD7;}
+.q-tile.active-tile{box-shadow:0 0 0 3px rgba(24,95,165,0.3);transform:translateY(-2px);}
+.tile-num{font-size:13px;font-weight:500;color:#1C1C1C;}
+.tile-icon{font-size:15px;line-height:1;}
+.correct .tile-num{color:#085041;}
+.incorrect .tile-num{color:#A32D2D;}
+.flagged-tile .tile-num{color:#633806;}
+.skipped .tile-num{color:#888780;}
+.summary-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#6B6560;}
+.legend-item{display:flex;align-items:center;gap:5px;}
+.legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.empty-filter{font-size:14px;color:#6B6560;padding:1rem 0;text-align:center;}
+
+/* Review panel */
+.review-panel{margin-top:1rem;}
+.review-counter{font-size:12px;color:#6B6560;text-align:right;margin-bottom:8px;}
+
+/* Rationale */
+.rationale{margin-top:16px;padding:14px 16px;border-left:3px solid #185FA5;background:#F5F5F3;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;}
+.rationale-key{font-weight:500;color:#0C447C;margin-bottom:8px;}
+.rationale-distractor{margin-top:8px;padding-top:8px;border-top:1px solid #E0DEDA;}
+.rationale-ref{font-size:11px;color:#6B6560;margin-top:10px;font-style:italic;}
+
+/* Already submitted */
+.already-card{background:#fff;border:1px solid #E0DEDA;border-radius:12px;padding:2rem;text-align:center;}
+
+@media(max-width:500px){
+  .nav-dot{width:28px;height:28px;font-size:11px;}
+  h1{font-size:18px;}
+  .summary-grid{grid-template-columns:repeat(auto-fill,minmax(56px,1fr));}
+}
+@media print{
+  body{background:#fff;}
+  .btn,.nav-row,.navigator,.flag-row,.modal-overlay,.tab-row,.review-panel,.summary-legend{display:none!important;}
+  .summary-grid{pointer-events:none;}
+  .q-tile{break-inside:avoid;}
+  p[style]{display:none!important;}
+}
+</style>
 </head>
 <body>
 <div class="container">
@@ -86,7 +234,7 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#FAEEDA;border:1.5px solid #FAC775;"></div>Flagged</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#F5F5F3;border:1.5px solid #DEDAD7;"></div>Not answered</div>
     </div>
-    <p class="no-print" style="font-size:12px;color:#6B6560;margin-top:10px;">Click any tile to review that question.</p>
+    <p style="font-size:12px;color:#6B6560;margin-top:10px;">Click any tile to review that question.</p>
   </div>
 
   <!-- Review panel -->
@@ -115,13 +263,394 @@
 </div>
 
 </div>
+<script>
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbxmCl4lQfQUsHH-wv2KNlQe0wzBKJLZeMo9LCUBfVC-oN2iC4dd4fMh5wW3R5_5Y-M-7Q/exec";
+const ALLOWED_DOMAIN="mednet.ucla.edu";
 
-<!-- Load order matters: data and primitives before the screens that use them. -->
-<script src="js/questions.js"></script>
-<script src="js/api.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/state.js"></script>
-<script src="js/exam.js"></script>
-<script src="js/review.js"></script>
+const QUESTIONS=[
+  {id:1,domain:"Pain & symptom management",domainClass:"domain-pain",
+  stem:"A 67-year-old man with metastatic prostate cancer and bone pain has been stable on oral oxycodone 20 mg every 12 hours plus 5 mg immediate-release oxycodone every 4 hours as needed. Over the past 24 hours he has used six breakthrough doses. His pain is 7/10 at rest. He has no nausea, sedation, or confusion. Renal and hepatic function are normal.",
+  lead:"Which of the following is the most appropriate next step in pain management?",
+  choices:["Add gabapentin 300 mg three times daily for presumed neuropathic component","Increase sustained-release oxycodone to 35 mg every 12 hours and maintain breakthrough dosing at 5 mg every 4 hours as needed","Increase sustained-release oxycodone to 50 mg every 12 hours and adjust breakthrough dose to 10 mg every 4 hours as needed","Rotate opioid to extended-release morphine 30 mg every 12 hours due to inadequate response to oxycodone"],
+  correct:2,
+  rationale:{key:"When a patient uses ≥4 breakthrough doses in 24 hours, the total daily opioid dose should be recalculated and the long-acting component increased. This patient used 6 × 5 mg = 30 mg in breakthrough doses plus 40 mg scheduled, totaling 70 mg/day. Increasing to 50 mg every 12 hours (100 mg/day) represents ~40% — within the recommended 25–50% upward titration range. The breakthrough dose should be 10–15% of the total daily dose.",
+  distractors:[{label:"A",text:"Adding gabapentin is premature before optimizing the opioid dose in a patient tolerating opioids without adverse effects."},{label:"B",text:"Increasing to 35 mg every 12 hours is only a 12.5% increase in scheduled dosing, insufficient given six breakthrough uses."},{label:"D",text:"Opioid rotation is indicated for inadequate analgesia despite escalation or intolerable side effects — not as a first response when titration is available."}],
+  ref:"Portenoy RK, Ahmed E. J Clin Oncol. 2014;32(16):1662-1670. UNIPAC 3."}},
+
+  {id:2,domain:"Pain & symptom management",domainClass:"domain-pain",
+  stem:"An 82-year-old woman with end-stage renal disease (GFR 8 mL/min), ischemic cardiomyopathy (EF 25%), and hip fracture pain is referred to palliative care. She is opioid-naive. Acetaminophen 650 mg every 6 hours provides minimal relief. Her ECG demonstrates a QTc of 480 ms. NSAIDs are contraindicated.",
+  lead:"Which of the following opioids is most appropriate to initiate?",
+  choices:["Morphine 2 mg by mouth every 4 hours as needed","Codeine 30 mg by mouth every 4 hours as needed","Fentanyl transdermal 12.5 mcg/hour patch every 72 hours","Hydromorphone 0.5 mg by mouth every 4 hours as needed"],
+  correct:3,
+  rationale:{key:"Hydromorphone's principal metabolite (H3G) has minimal clinical activity and does not accumulate to toxic levels in renal failure, unlike morphine's M6G. Starting at 0.5 mg is appropriately conservative for an opioid-naive elderly patient.",
+  distractors:[{label:"A",text:"Morphine's active metabolites (M6G, M3G) are renally cleared and accumulate in severe renal failure, causing sedation and respiratory depression. Avoid when GFR < 30 mL/min."},{label:"B",text:"Codeine is a prodrug converted to morphine; its active metabolites also accumulate in renal failure."},{label:"C",text:"Transdermal fentanyl is safe in renal failure but unsuitable for an opioid-naive patient with acute pain: 12–17 hour onset to therapeutic levels, cannot be rapidly titrated."}],
+  ref:"Dean M. J Pain Symptom Manage. 2004;28(5):497-504. UNIPAC 3."}},
+
+  {id:3,domain:"Non-pain symptom management",domainClass:"domain-nonsymptom",
+  stem:"A 71-year-old man with advanced COPD on home hospice is evaluated for worsening dyspnea. He is on 2 L/min supplemental oxygen with resting SaO₂ of 94%. His regimen includes tiotropium, fluticasone/salmeterol, and as-needed albuterol nebulization used four times daily this past week. He recently completed systemic corticosteroids for an exacerbation. He rates dyspnea 8/10 at rest.",
+  lead:"Which of the following is the most appropriate next step in management?",
+  choices:["Initiate low-dose oral morphine 2.5 mg every 4 hours as needed","Increase supplemental oxygen to 4 L/min targeting SaO₂ above 96%","Restart systemic prednisone 40 mg daily","Add scheduled albuterol nebulization every 2 hours"],
+  correct:0,
+  rationale:{key:"Low-dose opioids are the most evidence-based intervention for refractory dyspnea in end-stage COPD. Multiple randomized trials demonstrate low-dose oral morphine reduces the subjective sensation of breathlessness without clinically meaningful respiratory depression at appropriate doses.",
+  distractors:[{label:"B",text:"SaO₂ is already 94%. Increasing oxygen does not reliably improve dyspnea in normooxic COPD patients and may suppress hypoxic drive."},{label:"C",text:"Restarting steroids without evidence of new exacerbation is not appropriate and carries additional systemic side-effect risk."},{label:"D",text:"Scheduled every-2-hour albuterol substantially increases cardiac side effects without evidence of benefit in refractory end-stage dyspnea."}],
+  ref:"Currow DC, et al. J Pain Symptom Manage. 2011;42(3):388-399. UNIPAC 4."}},
+
+  {id:4,domain:"Non-pain symptom management",domainClass:"domain-nonsymptom",
+  stem:"A 58-year-old woman with pancreatic cancer develops agitated delirium on your inpatient palliative care unit. She is non-verbal and pulling at her IV lines. You have already corrected hyponatremia (Na now 138), discontinued dexamethasone, and treated urinary retention. She remains agitated.",
+  lead:"Which of the following is the most appropriate pharmacologic intervention at this time?",
+  choices:["Lorazepam 1 mg intravenously every 4 hours as needed","Haloperidol 0.5–1 mg by mouth or intravenously every 4–6 hours as needed","Quetiapine 50 mg by mouth twice daily","Diphenhydramine 25 mg intravenously every 6 hours as needed"],
+  correct:1,
+  rationale:{key:"Haloperidol is the first-line agent for delirium in palliative care per ASCO and NCCN guidelines. It is effective for hyperactive delirium, available in IV/SQ/PO, and at low doses allows titration with a favorable side-effect profile.",
+  distractors:[{label:"A",text:"Benzodiazepines can paradoxically worsen delirium. Reserved for alcohol/benzo withdrawal delirium or refractory cases near end of life."},{label:"C",text:"Quetiapine has slower onset and no IV form — suboptimal for acute agitated delirium requiring rapid titration."},{label:"D",text:"Diphenhydramine is a well-documented cause of delirium due to its anticholinergic properties. It would worsen this patient's condition."}],
+  ref:"Bush SH, et al. J Pain Symptom Manage. 2014;48(2):231-248."}},
+
+  {id:5,domain:"Communication & goals of care",domainClass:"domain-comms",
+  stem:"A 64-year-old woman with stage IV non-small cell lung cancer is hospitalized with pneumonia. After treatment she recovers to baseline. Her oncologist has told her cancer is progressing and she is not a candidate for further chemotherapy. You meet with her and her adult daughter to discuss goals of care. After an illness understanding check, the patient states: \"I know things aren't going well, but I'm just not ready to give up hope.\"",
+  lead:"Which of the following responses best demonstrates evidence-based serious illness communication?",
+  choices:["\"I understand. Let's focus on your treatment options and come back to this conversation when you're ready.\"","\"Hoping for the best is something I encourage. What's most important to you as you think about the time ahead?\"","\"It's important that you understand that further chemotherapy is not an option, so we need to discuss hospice today.\"","\"Hope is very important. I also want to make sure we're planning for different possibilities — can we talk about what a difficult time might look like for you?\""],
+  correct:3,
+  rationale:{key:"This response uses the validated 'hope for the best, prepare for the worst' framework. It acknowledges and preserves hope while opening space to plan for a range of outcomes — without false reassurance or premature confrontation.",
+  distractors:[{label:"A",text:"Deferring fails the patient and misses a critical window when she is alert and able to participate in planning."},{label:"B",text:"Pivoting to a values question without first acknowledging the emotional content of her statement skips a required empathic step."},{label:"C",text:"Directing her to hospice without exploring her values is inconsistent with evidence-based shared decision-making and may close off the conversation."}],
+  ref:"Bernacki RE, Block SD. JAMA Intern Med. 2014;174(12):1994-2003. Ariadne Labs Serious Illness Conversation Guide."}},
+
+  {id:6,domain:"Communication & goals of care",domainClass:"domain-comms",
+  stem:"A 78-year-old man with advanced heart failure is hospitalized for his fourth admission in six months. He has moderate dementia and cannot articulate his own preferences. His wife, who holds his healthcare proxy, insists that \"everything should be done\" and becomes tearful and angry when the team raises goals of care. There is no advance directive on file.",
+  lead:"Which of the following best reflects the appropriate ethical and legal framework for this situation?",
+  choices:["The surrogate's expressed wishes must be followed in full, as she holds the legal authority to make all medical decisions.","The team should defer all goals-of-care discussions until the patient's cognitive status improves.","The surrogate is ethically obligated to apply a substituted judgment standard, basing decisions on what the patient would have wanted.","In the absence of an advance directive, state law requires the hospital ethics committee to determine the plan of care."],
+  correct:2,
+  rationale:{key:"The substituted judgment standard requires surrogates to replicate the decision the patient would have made based on his known values and prior statements — not the surrogate's own preferences.",
+  distractors:[{label:"A",text:"Proxy authority is not unlimited. The surrogate is obligated to exercise it in service of the patient's known preferences, not her own wishes."},{label:"B",text:"Indefinite deferral in a patient with HF trajectory leaves him without a plan and exposed to unwanted interventions."},{label:"D",text:"Ethics committee involvement is not required by default when an advance directive is absent. The surrogate remains the decision-maker."}],
+  ref:"Buchanan AE, Brock DW. Deciding for Others. Cambridge University Press, 1989."}},
+
+  {id:7,domain:"Hospice eligibility & prognostication",domainClass:"domain-hospice",
+  stem:"A 74-year-old woman with non-Hodgkin lymphoma, end-stage renal disease on hemodialysis, and hypertension is hospitalized with declining functional status. She requires assistance with bathing and dressing, has lost 12 pounds over 3 months, and wishes to discontinue hemodialysis and pursue comfort-focused care. The nephrology team estimates survival of 7–14 days after dialysis cessation. Her oncologist estimates her cancer prognosis at 4–5 months.",
+  lead:"Which of the following best describes her hospice eligibility?",
+  choices:["She is not eligible for hospice because her cancer prognosis exceeds six months.","She is eligible for hospice, and dialysis must be discontinued prior to enrollment.","She is eligible for hospice based on her renal disease prognosis after dialysis withdrawal, and enrollment can proceed.","She requires a hospice-specific prognostic tool score below a defined threshold before enrollment can be approved."],
+  correct:2,
+  rationale:{key:"When a patient voluntarily withdraws from life-sustaining treatment, prognosis is assessed based on the expected course after that decision — 7–14 days, well within the six-month threshold. Dialysis does not need to be discontinued before enrollment.",
+  distractors:[{label:"A",text:"The cancer prognosis alone does not determine eligibility when a co-existing terminal condition meets the threshold. Either diagnosis may be used for certification."},{label:"B",text:"Requiring pre-enrollment discontinuation of dialysis is inconsistent with Medicare hospice regulations."},{label:"D",text:"No specific prognostic tool score is required for enrollment. Certification is based on clinical judgment."}],
+  ref:"Medicare Benefit Policy Manual, Chapter 9. 42 CFR §418.22."}},
+
+  {id:8,domain:"Hospice eligibility & prognostication",domainClass:"domain-hospice",
+  stem:"A 69-year-old man with Alzheimer's dementia is brought to clinic. He no longer recognizes his wife, is incontinent of bowel and bladder, cannot ambulate without full assistance, and speaks only a few intelligible words. He has had three hospitalizations for aspiration pneumonia in the past year and has a BMI of 17.4 with 8-pound weight loss over 6 months.",
+  lead:"Which of the following is correct regarding this patient's hospice eligibility?",
+  choices:["He does not meet hospice eligibility criteria because his functional decline may stabilize.","He meets FAST Stage 7C criteria and is eligible for hospice with dementia as the terminal diagnosis if he has had at least one dementia-related complication in the past 12 months.","He requires a Mini-Mental State Examination score of 10 or below to qualify for hospice under the dementia LCD.","He is eligible for hospice only if his primary care physician certifies that death is imminent within 30 days."],
+  correct:1,
+  rationale:{key:"Medicare's LCD for dementia requires FAST Stage 7 criteria and at least one qualifying complication in the prior 12 months — including aspiration pneumonia, UTI, septicemia, or significant weight loss. This patient meets multiple criteria.",
+  distractors:[{label:"A",text:"Potential stabilization does not disqualify a patient. Advanced dementia is terminal and stabilization at this functional level does not preclude a six-month prognosis."},{label:"C",text:"The MMSE is not a required component of the dementia LCD. The FAST staging system is the functional framework used."},{label:"D",text:"Hospice certification requires a prognosis of six months or less, not 30 days or less."}],
+  ref:"Medicare LCD for Hospice: Determining Terminal Prognosis (L33393). Reisberg B. Psychopharmacol Bull. 1988;24(4):653-659."}},
+
+  {id:9,domain:"Ethics & law",domainClass:"domain-ethics",
+  stem:"A 55-year-old man with glioblastoma multiforme is admitted with his third seizure in a week. He is alert and oriented between seizures. He states clearly that he does not want resuscitation and does not want to be kept alive on machines. His wife, who is his legally designated healthcare proxy, insists he be a full code, stating he is 'not thinking clearly.' The team's neurologic assessment documents that the patient has decisional capacity for this decision.",
+  lead:"Which of the following reflects the most appropriate course of action?",
+  choices:["Defer to the wife's wishes, as she is the legally designated healthcare proxy.","Request a formal psychiatric capacity evaluation before acting on the patient's stated preferences.","Honor the patient's documented preferences, as a capacitated patient's autonomous decisions take precedence over surrogate authority.","Convene the ethics committee to adjudicate between the patient's and surrogate's conflicting preferences."],
+  correct:2,
+  rationale:{key:"A patient with documented decisional capacity has the absolute right to refuse any medical intervention. Surrogate authority is activated only when a patient lacks capacity. The wife's proxy authority is suspended while the patient has capacity.",
+  distractors:[{label:"A",text:"Proxy authority is not active when a patient has decision-making capacity. Deferring to the wife would violate the patient's autonomy and legal right to informed refusal."},{label:"B",text:"Referring to psychiatry because the surrogate disagrees instrumentalizes the evaluation to override an autonomous decision — ethically problematic."},{label:"D",text:"Ethics committee consultation is for genuine dilemmas, not for cases where the clinical and legal answer is clear."}],
+  ref:"Appelbaum PS. N Engl J Med. 2007;357(18):1834-1840. Cruzan v. Director, 497 U.S. 261 (1990)."}},
+
+  {id:10,domain:"Psychosocial & spiritual care",domainClass:"domain-psych",
+  stem:"A 48-year-old woman with metastatic breast cancer reports feeling profoundly disconnected from her sense of self since her diagnosis — she no longer finds meaning in activities she previously loved, feels like a different person, and fears she will be forgotten after her death. She denies depressed mood, anhedonia, vegetative symptoms, hopelessness, or suicidal ideation. Her PHQ-9 is 4/16. She asks whether medication would help.",
+  lead:"Which of the following is the most appropriate response?",
+  choices:["Initiate sertraline 50 mg daily, as her symptoms are consistent with a subthreshold depressive disorder.","Refer her to a psychologist or trained clinician for Meaning-Centered Psychotherapy, an evidence-based intervention for existential distress in advanced cancer.","Reassure her that these feelings are expected in the context of serious illness and recommend follow-up in 3 months.","Refer for chaplaincy services only, as her symptoms are spiritual in nature and outside the scope of medical management."],
+  correct:1,
+  rationale:{key:"This patient describes existential distress — loss of identity, meaning, and legacy — distinct from major depression. Meaning-Centered Psychotherapy (MCP) has RCT evidence for improvement in spiritual well-being and reductions in existential distress in advanced cancer.",
+  distractors:[{label:"A",text:"This patient does not meet criteria for a depressive disorder. Her PHQ-9 is below threshold and she denies all core depressive symptoms."},{label:"C",text:"Existential distress is not self-limited in advanced cancer and is associated with impaired quality of life. Active intervention is indicated."},{label:"D",text:"Chaplaincy is important but limiting the referral to chaplaincy alone ignores available psychologically-based evidence-based interventions."}],
+  ref:"Breitbart W, et al. Psychooncology. 2010;19(1):21-28. Cancer. 2018;124(15):3231-3239."}},
+];
+
+// State
+let current=0;
+let answers=new Array(QUESTIONS.length).fill(null);
+let flagged=new Array(QUESTIONS.length).fill(false);
+let fellowName='',fellowEmail='';
+let reviewFilter='all';
+let reviewIndex=0;
+let reviewOpen=false;
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(new URLSearchParams(window.location.search).get('reset')==='true'){
+    localStorage.removeItem('hpm_exam_submitted');
+    window.location.href=window.location.pathname;
+    return;
+  }
+  if(localStorage.getItem('hpm_exam_submitted')){
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('already-screen').classList.remove('hidden');
+  }
+});
+
+function validateEmail(){
+  const val=document.getElementById('fellow-email').value.trim();
+  const errEl=document.getElementById('email-error');
+  const inputEl=document.getElementById('fellow-email');
+  if(!val){errEl.textContent='';inputEl.classList.remove('error');return true;}
+  if(!val.endsWith('@'+ALLOWED_DOMAIN)){
+    errEl.textContent='Please use your @'+ALLOWED_DOMAIN+' email address.';
+    inputEl.classList.add('error');return false;
+  }
+  errEl.textContent='';inputEl.classList.remove('error');return true;
+}
+function clearEmailError(){
+  document.getElementById('email-error').textContent='';
+  document.getElementById('fellow-email').classList.remove('error');
+}
+
+function startExam(){
+  const name=document.getElementById('fellow-name').value.trim();
+  const nameErr=document.getElementById('name-error');
+  if(!name){nameErr.textContent='Please enter your full name.';return;}
+  nameErr.textContent='';
+  if(!validateEmail())return;
+  fellowName=name;
+  fellowEmail=document.getElementById('fellow-email').value.trim();
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('exam-screen').classList.remove('hidden');
+  renderQuestion();renderNavigator();
+}
+
+function renderNavigator(){
+  const grid=document.getElementById('nav-grid');
+  grid.innerHTML='';
+  QUESTIONS.forEach((_,i)=>{
+    const dot=document.createElement('button');
+    dot.className='nav-dot';
+    if(i===current)dot.classList.add('current');
+    if(answers[i]!==null)dot.classList.add('answered');
+    if(flagged[i])dot.classList.add('flagged');
+    dot.textContent=i+1;
+    dot.onclick=()=>jumpTo(i);
+    grid.appendChild(dot);
+  });
+}
+function jumpTo(i){current=i;renderQuestion();renderNavigator();}
+
+function renderQuestion(){
+  const q=QUESTIONS[current];
+  const answeredCount=answers.filter(a=>a!==null).length;
+  document.getElementById('progress-fill').style.width=Math.round((current/QUESTIONS.length)*100)+'%';
+  document.getElementById('progress-text').textContent='Question '+(current+1)+' of '+QUESTIONS.length;
+  document.getElementById('answered-count').textContent=answeredCount+' of '+QUESTIONS.length+' answered';
+  const selected=answers[current];
+  let choicesHTML='';
+  q.choices.forEach((c,i)=>{
+    choicesHTML+=`<button class="choice-btn${i===selected?' selected':''}" onclick="selectChoice(${i})">
+      <span class="choice-letter">${String.fromCharCode(65+i)}.</span>
+      <span class="choice-text">${c}</span>
+    </button>`;
+  });
+  document.getElementById('q-container').innerHTML=`<div class="card">
+    <div class="q-num">Question ${q.id} of ${QUESTIONS.length}</div>
+    <span class="domain-badge ${q.domainClass}">${q.domain}</span>
+    <div class="q-stem">${q.stem}</div>
+    <div class="q-lead">${q.lead}</div>
+    <div class="choices">${choicesHTML}</div>
+    <div class="flag-row">
+      <button class="flag-btn${flagged[current]?' flagged':''}" onclick="toggleFlag()">
+        ${flagged[current]?'⚑ Flagged for review':'⚐ Flag for review'}
+      </button>
+    </div>
+  </div>`;
+  document.getElementById('btn-prev').disabled=current===0;
+  const isLast=current===QUESTIONS.length-1;
+  document.getElementById('btn-next').classList.toggle('hidden',isLast);
+  document.getElementById('btn-finish').classList.toggle('hidden',!isLast);
+}
+
+function selectChoice(idx){answers[current]=idx;renderQuestion();renderNavigator();}
+function toggleFlag(){flagged[current]=!flagged[current];renderQuestion();renderNavigator();}
+function nextQ(){if(current<QUESTIONS.length-1){current++;renderQuestion();renderNavigator();}}
+function prevQ(){if(current>0){current--;renderQuestion();renderNavigator();}}
+
+function attemptFinish(){
+  const unanswered=answers.filter(a=>a===null).length;
+  if(unanswered>0){
+    showModal(
+      unanswered+' question'+(unanswered>1?'s':'')+' unanswered',
+      'You have '+unanswered+' unanswered question'+(unanswered>1?'s':'')+'. Unanswered questions will be marked incorrect. You can return to review them, or submit now.',
+      [{label:'Return to exam',cls:'btn',action:closeModal},{label:'Submit anyway',cls:'btn danger',action:()=>{closeModal();submitExam();}}]
+    );
+  } else {
+    showModal(
+      'Submit exam?',
+      'You have answered all '+QUESTIONS.length+' questions. Once submitted your answers cannot be changed. Are you ready?',
+      [{label:'Go back',cls:'btn',action:closeModal},{label:'Submit',cls:'btn primary',action:()=>{closeModal();submitExam();}}]
+    );
+  }
+}
+
+function submitExam(){
+  document.getElementById('exam-screen').classList.add('hidden');
+  document.getElementById('results-screen').classList.remove('hidden');
+
+  const totalCorrect=answers.filter((a,i)=>a===QUESTIONS[i].correct).length;
+  const totalPct=Math.round((totalCorrect/QUESTIONS.length)*100);
+  const domains={};
+  QUESTIONS.forEach((q,i)=>{
+    if(!domains[q.domain])domains[q.domain]={correct:0,total:0};
+    domains[q.domain].total++;
+    if(answers[i]===q.correct)domains[q.domain].correct++;
+  });
+
+  document.getElementById('fellow-display').textContent=fellowName+' · '+fellowEmail+' · '+new Date().toLocaleDateString();
+  document.getElementById('final-score').textContent=totalPct+'%';
+  document.getElementById('final-label').textContent=totalCorrect+' of '+QUESTIONS.length+' correct';
+
+  let bHTML='<div style="font-size:13px;font-weight:500;color:#6B6560;margin-bottom:8px;">Performance by domain</div>';
+  Object.entries(domains).forEach(([name,d])=>{
+    const dpct=Math.round((d.correct/d.total)*100);
+    const pc=dpct>=80?'pill-strong':dpct>=60?'pill-mid':'pill-weak';
+    bHTML+=`<div class="domain-row"><span>${name}</span><span class="pill ${pc}">${d.correct}/${d.total} (${dpct}%)</span></div>`;
+  });
+  document.getElementById('domain-breakdown').innerHTML=bHTML;
+
+  renderSummaryGrid();
+
+  // Submit to Google Sheets
+  const statusBox=document.getElementById('submit-status-box');
+  statusBox.innerHTML=`<div class="submit-status pending">⏳ &nbsp;Submitting results...</div>`;
+  const domainScores={};
+  Object.entries(domains).forEach(([name,d])=>{domainScores[name]=d.correct+'/'+d.total;});
+  fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({fellowName,fellowEmail,totalPct,totalCorrect:totalCorrect+'/'+QUESTIONS.length,domains:domainScores})
+  }).then(()=>{
+    localStorage.setItem('hpm_exam_submitted','true');
+    statusBox.innerHTML=`<div class="submit-status success">✓ &nbsp;Results successfully submitted to the program.</div>`;
+  }).catch(()=>{
+    statusBox.innerHTML=`<div class="submit-status error">⚠ &nbsp;Submission failed — please screenshot this page and email it to the program director.</div>`;
+  });
+}
+
+// ── Summary grid ──
+function getFilteredIndices(){
+  if(reviewFilter==='incorrect')return QUESTIONS.map((_,i)=>i).filter(i=>answers[i]!==QUESTIONS[i].correct);
+  if(reviewFilter==='flagged')return QUESTIONS.map((_,i)=>i).filter(i=>flagged[i]);
+  return QUESTIONS.map((_,i)=>i);
+}
+
+function renderSummaryGrid(){
+  const grid=document.getElementById('summary-grid');
+  const emptyMsg=document.getElementById('empty-filter-msg');
+  const indices=getFilteredIndices();
+  grid.innerHTML='';
+  if(indices.length===0){
+    emptyMsg.classList.remove('hidden');
+    emptyMsg.textContent=reviewFilter==='flagged'?'No questions were flagged during the exam.':'No incorrect answers — well done!';
+    return;
+  }
+  emptyMsg.classList.add('hidden');
+  indices.forEach((qi,pos)=>{
+    const ic=answers[qi]===QUESTIONS[qi].correct;
+    const isFl=flagged[qi];
+    const isSkipped=answers[qi]===null;
+    let tileCls='q-tile';
+    let icon='';
+    if(isSkipped){tileCls+=' skipped';icon='—';}
+    else if(isFl){tileCls+=' flagged-tile';icon='⚑';}
+    else if(ic){tileCls+=' correct';icon='✓';}
+    else{tileCls+=' incorrect';icon='✗';}
+    if(reviewOpen&&reviewIndex===pos)tileCls+=' active-tile';
+    const tile=document.createElement('button');
+    tile.className=tileCls;
+    tile.innerHTML=`<span class="tile-num">Q${qi+1}</span><span class="tile-icon">${icon}</span>`;
+    tile.onclick=()=>openReviewAt(pos);
+    grid.appendChild(tile);
+  });
+}
+
+function setFilter(f){
+  reviewFilter=f;
+  reviewIndex=0;
+  reviewOpen=false;
+  updateFilterTabs();
+  renderSummaryGrid();
+  document.getElementById('review-panel').classList.add('hidden');
+}
+
+function updateFilterTabs(){
+  ['all','incorrect','flagged'].forEach(f=>{
+    document.getElementById('tab-'+f).className='btn'+(reviewFilter===f?' active-tab':'');
+  });
+}
+
+function openReviewAt(pos){
+  reviewIndex=pos;
+  reviewOpen=true;
+  renderSummaryGrid();
+  renderReviewQuestion();
+  const panel=document.getElementById('review-panel');
+  panel.classList.remove('hidden');
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function closeReview(){
+  reviewOpen=false;
+  renderSummaryGrid();
+  document.getElementById('review-panel').classList.add('hidden');
+}
+
+function renderReviewQuestion(){
+  const indices=getFilteredIndices();
+  if(indices.length===0)return;
+  const qi=indices[reviewIndex];
+  const q=QUESTIONS[qi];
+  const ic=answers[qi]===q.correct;
+  const cl=String.fromCharCode(65+q.correct);
+
+  document.getElementById('review-counter').textContent='Question '+(reviewIndex+1)+' of '+indices.length+' ('+reviewFilter+')';
+  document.getElementById('rev-prev').disabled=reviewIndex===0;
+  document.getElementById('rev-next').disabled=reviewIndex===indices.length-1;
+
+  let choicesHTML='';
+  q.choices.forEach((c,ci)=>{
+    let cls='choice-btn';
+    if(ci===q.correct)cls+=' correct';
+    else if(ci===answers[qi]&&ci!==q.correct)cls+=' incorrect';
+    const icon=ci===q.correct?'<span class="result-icon" style="color:#0F6E56">✓</span>':ci===answers[qi]&&ci!==q.correct?'<span class="result-icon" style="color:#A32D2D">✗</span>':'';
+    choicesHTML+=`<button class="${cls}" disabled><span class="choice-letter">${String.fromCharCode(65+ci)}.</span><span class="choice-text">${c}</span>${icon}</button>`;
+  });
+
+  let distHTML=q.rationale.distractors.map(d=>`<div class="rationale-distractor"><p><strong>Choice ${d.label}:</strong> ${d.text}</p></div>`).join('');
+
+  document.getElementById('review-q-container').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span class="domain-badge ${q.domainClass}">${q.domain}</span>
+      <span style="font-size:13px;font-weight:500;color:${ic?'#0F6E56':'#A32D2D'}">${ic?'✓ Correct':'✗ Incorrect'}</span>
+    </div>
+    <div class="q-num">Question ${q.id} of ${QUESTIONS.length}${flagged[qi]?' · ⚑ Flagged':''}</div>
+    <div class="q-stem">${q.stem}</div>
+    <div class="q-lead">${q.lead}</div>
+    <div class="choices" style="margin-bottom:12px;">${choicesHTML}</div>
+    <div style="font-size:13px;color:#6B6560;margin-bottom:4px;">Your answer: <strong>${answers[qi]!==null?String.fromCharCode(65+answers[qi])+'. '+q.choices[answers[qi]]:'Not answered'}</strong></div>
+    <div style="font-size:13px;color:#0F6E56;margin-bottom:12px;">Correct answer: <strong>${cl}. ${q.choices[q.correct]}</strong></div>
+    <div class="rationale">
+      <div class="rationale-key">Correct answer — Choice ${cl}: ${q.rationale.key}</div>
+      ${distHTML}
+      <div class="rationale-ref">${q.rationale.ref}</div>
+    </div>`;
+}
+
+function revPrev(){if(reviewIndex>0){reviewIndex--;renderReviewQuestion();renderSummaryGrid();}}
+function revNext(){const indices=getFilteredIndices();if(reviewIndex<indices.length-1){reviewIndex++;renderReviewQuestion();renderSummaryGrid();}}
+
+function showModal(title,body,btns){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').textContent=body;
+  const bc=document.getElementById('modal-btns');
+  bc.innerHTML='';
+  btns.forEach(b=>{const el=document.createElement('button');el.className=b.cls;el.textContent=b.label;el.onclick=b.action;bc.appendChild(el);});
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');}
+
+let _filterBeforePrint='all';
+window.addEventListener('beforeprint',()=>{
+  _filterBeforePrint=reviewFilter;
+  if(reviewFilter!=='all'){setFilter('all');}
+});
+window.addEventListener('afterprint',()=>{
+  if(_filterBeforePrint!=='all'){setFilter(_filterBeforePrint);}
+});
+</script>
 </body>
 </html>
