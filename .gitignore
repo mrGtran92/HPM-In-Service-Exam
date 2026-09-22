@@ -6,3 +6,6 @@ __pycache__/
 .venv/
 tools/out/
 .clasp.json
+
+# Local dev fixtures — contain answer key material, never commit
+dev/

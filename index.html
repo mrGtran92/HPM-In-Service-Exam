@@ -4,123 +4,191 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HPM Fellow In-Service Exam</title>
+<!-- No external scripts, stylesheets or fonts, ever. A third-party origin
+     could read answers or inject code; zero dependencies is a security
+     property worth keeping deliberately. -->
 <link rel="stylesheet" href="css/exam.css">
 </head>
 <body>
-<div class="container">
 
-<!-- ALREADY SUBMITTED -->
-<div id="already-screen" class="hidden">
-  <h1>HPM Fellow In-Service Exam</h1><br>
-  <div class="already-card">
-    <div style="font-size:32px;margin-bottom:12px;">🔒</div>
-    <h2 style="font-size:17px;font-weight:500;margin-bottom:8px;">Exam already submitted</h2>
-    <p style="font-size:14px;color:#6B6560;line-height:1.6;">Our records show this browser has already completed and submitted the exam. Each fellow may only submit once.<br><br>If you believe this is an error, please contact the program director.</p>
-  </div>
+<!-- Screen-reader announcements (flag changes, navigator open, resume) -->
+<div id="sr-live" class="sr-only" role="status" aria-live="polite"></div>
+
+<div id="mock-banner" class="banner hidden">
+  Local development build — grading in-browser from <code>dev/</code> fixtures. Not the live exam.
 </div>
 
-<!-- START SCREEN -->
-<div id="start-screen">
+<!-- ══ START ══════════════════════════════════════════════════════════ -->
+<div id="start-screen" class="container">
   <h1>HPM Fellow In-Service Exam</h1>
-  <p class="subtitle">Pilot · 10 questions · Board-level difficulty · Single best answer</p>
-  <div class="card">
-    <p class="field-label">Full name</p>
-    <input class="text-input" type="text" id="fellow-name" placeholder="First and last name"/>
-    <div class="field-error" id="name-error"></div>
-    <p class="field-label">Institutional email address</p>
-    <input class="text-input" type="email" id="fellow-email" placeholder="you@mednet.ucla.edu" onblur="validateEmail()" oninput="clearEmailError()"/>
-    <div class="field-error" id="email-error"></div>
-    <div class="field-hint">Must be a @mednet.ucla.edu address</div>
-    <div style="background:#F5F5F3;border-radius:8px;padding:12px 14px;margin-bottom:1.25rem;font-size:13px;color:#6B6560;line-height:1.6;">
-      <strong style="color:#1C1C1C;">Before you begin:</strong> This is a single-attempt exam. Once you submit, answers cannot be changed. You may navigate freely between questions and change answers at any time before final submission. No feedback is given during the exam — correct answers and rationale are revealed only after submission.
+  <p class="subtitle">Board-level difficulty · Single best answer</p>
+
+  <div id="resume-banner" class="notice hidden">
+    <p id="resume-text"></p>
+    <div class="notice-actions">
+      <button class="btn primary" id="resume-go">Resume exam</button>
+      <button class="btn" id="resume-discard">Start over</button>
     </div>
-    <button class="btn primary" onclick="startExam()">Begin exam</button>
+  </div>
+
+  <div id="small-screen-warning" class="notice warn hidden">
+    <p><strong>A laptop or desktop is strongly recommended.</strong>
+       This exam has long clinical scenarios with five options each and takes
+       90–120 minutes. You may continue on this device, but it will be harder to read.</p>
+  </div>
+
+  <div class="card">
+    <label class="field-label" for="fellow-name">Full name</label>
+    <input class="text-input" type="text" id="fellow-name" autocomplete="name"
+           placeholder="First and last name" aria-describedby="name-error"/>
+    <div class="field-error" id="name-error" role="alert"></div>
+
+    <label class="field-label" for="fellow-email">Institutional email address</label>
+    <input class="text-input" type="email" id="fellow-email" autocomplete="email"
+           placeholder="you@mednet.ucla.edu" aria-describedby="email-error email-hint"
+           onblur="validateEmail()" oninput="clearEmailError()"/>
+    <div class="field-error" id="email-error" role="alert"></div>
+    <div class="field-hint" id="email-hint">Must be your @mednet.ucla.edu address</div>
+
+    <div class="briefing">
+      <p><strong>Before you begin</strong></p>
+      <ul>
+        <li>Single attempt. Once submitted, answers cannot be changed.</li>
+        <li>Move freely between questions and change answers any time before submitting.</li>
+        <li>No feedback during the exam — answers and rationales appear after you submit.</li>
+        <li><strong>Your answers save automatically.</strong> If your browser closes or your
+            computer restarts, reopen this page and you can pick up where you left off.</li>
+      </ul>
+      <p class="kbd-help"><strong>Keyboard:</strong>
+        <kbd>A</kbd>–<kbd>E</kbd> choose · <kbd>←</kbd><kbd>→</kbd> move ·
+        <kbd>F</kbd> flag · <kbd>R</kbd> all questions</p>
+    </div>
+
+    <div class="field-error" id="start-error" role="alert"></div>
+    <button class="btn primary" id="btn-begin" onclick="startExam()">Begin exam</button>
   </div>
 </div>
 
-<!-- EXAM SCREEN -->
+<!-- ══ EXAM ═══════════════════════════════════════════════════════════ -->
 <div id="exam-screen" class="hidden">
-  <h1>HPM Fellow In-Service Exam</h1>
-  <div class="progress-wrap"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-  <div class="progress-label"><span id="progress-text"></span><span id="answered-count"></span></div>
-  <div class="navigator">
-    <div class="nav-label">Jump to question</div>
-    <div class="nav-grid" id="nav-grid"></div>
-  </div>
-  <div id="q-container"></div>
-  <div class="nav-row">
-    <button class="btn" id="btn-prev" onclick="prevQ()">← Previous</button>
-    <button class="btn primary" id="btn-next" onclick="nextQ()">Next →</button>
-    <button class="btn primary hidden" id="btn-finish" onclick="attemptFinish()">See results</button>
-  </div>
-</div>
-
-<!-- RESULTS SCREEN -->
-<div id="results-screen" class="hidden">
-  <h1 style="margin-bottom:1.5rem;">HPM Fellow In-Service Exam — Results</h1>
-  <div id="submit-status-box"></div>
-
-  <!-- Score card -->
-  <div class="score-card">
-    <div style="font-size:13px;color:#6B6560;margin-bottom:4px;" id="fellow-display"></div>
-    <div class="score-big" id="final-score"></div>
-    <div class="score-label" id="final-label"></div>
-    <div style="text-align:left;margin-top:1.5rem;" id="domain-breakdown"></div>
-  </div>
-
-  <!-- Summary grid -->
-  <div class="card summary-section">
-    <div class="summary-header">
-      <div class="summary-header-title">Question summary</div>
-      <div class="tab-row">
-        <button class="btn active-tab" id="tab-all" onclick="setFilter('all')">All</button>
-        <button class="btn" id="tab-incorrect" onclick="setFilter('incorrect')">Incorrect</button>
-        <button class="btn" id="tab-flagged" onclick="setFilter('flagged')">Flagged</button>
+  <header class="exam-header">
+    <div class="container exam-header-inner">
+      <div class="hdr-left">
+        <span id="hdr-position" class="hdr-position"></span>
+        <span id="hdr-stats" class="hdr-stats"></span>
+      </div>
+      <div class="hdr-right">
+        <span id="hdr-save" class="hdr-save"></span>
+        <span id="hdr-clock" class="hdr-clock" title="Time elapsed"></span>
+        <button class="btn small" onclick="openNavigator()" title="All questions (R)">
+          <span aria-hidden="true">▦</span> All questions
+        </button>
       </div>
     </div>
-    <div class="summary-grid" id="summary-grid"></div>
-    <div id="empty-filter-msg" class="empty-filter hidden"></div>
-    <div class="summary-legend">
-      <div class="legend-item"><div class="legend-swatch" style="background:#E1F5EE;border:1.5px solid #5DCAA5;"></div>Correct</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#FCEBEB;border:1.5px solid #F09595;"></div>Incorrect</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#FAEEDA;border:1.5px solid #FAC775;"></div>Flagged</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#F5F5F3;border:1.5px solid #DEDAD7;"></div>Not answered</div>
+    <div class="progress-wrap" id="progress-wrap" role="progressbar"
+         aria-label="Questions answered" aria-valuemin="0">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
     </div>
-    <p class="no-print" style="font-size:12px;color:#6B6560;margin-top:10px;">Click any tile to review that question.</p>
-  </div>
+  </header>
 
-  <!-- Review panel -->
-  <div id="review-panel" class="card review-panel hidden">
-    <div class="review-counter" id="review-counter"></div>
-    <div id="review-q-container"></div>
-    <div class="nav-row" style="margin-top:1rem;">
-      <button class="btn" id="rev-prev" onclick="revPrev()">← Previous</button>
-      <button class="btn" onclick="closeReview()">Close review</button>
-      <button class="btn primary" id="rev-next" onclick="revNext()">Next →</button>
-    </div>
-  </div>
+  <main class="container" id="q-container"></main>
 
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:1rem;">
-    <button class="btn primary" onclick="window.print()">Print / Save as PDF</button>
+  <div class="container nav-row">
+    <button class="btn" id="btn-prev" onclick="prevQ()">← Previous</button>
+    <button class="btn primary" id="btn-next" onclick="nextQ()">Next →</button>
+    <button class="btn primary hidden" id="btn-finish" onclick="attemptFinish()">Finish and submit</button>
   </div>
 </div>
 
-<!-- MODAL -->
-<div id="modal-overlay" class="modal-overlay hidden">
-  <div class="modal">
+<!-- ══ RESULTS ════════════════════════════════════════════════════════ -->
+<div id="results-screen" class="container hidden">
+  <h1>In-Service Exam — Results</h1>
+  <div id="submit-status" class="submit-status"></div>
+
+  <div id="failed-actions" class="notice warn hidden">
+    <div class="notice-actions">
+      <button class="btn primary" id="download-attempt">Download my answers</button>
+      <button class="btn" id="retry-submit">Try sending again</button>
+    </div>
+  </div>
+
+  <div id="results-body" class="hidden">
+    <section class="score-card">
+      <div class="fellow-line" id="fellow-display"></div>
+      <div class="score-big" id="final-score"></div>
+      <div class="score-label" id="final-label"></div>
+      <div class="domain-breakdown" id="domain-breakdown"></div>
+    </section>
+
+    <section class="card no-print">
+      <div class="summary-header">
+        <h2 class="card-title">Question summary</h2>
+        <button class="btn small" id="results-nav-btn"><span aria-hidden="true">▦</span> Browse all</button>
+      </div>
+      <div class="chips" id="review-filters"></div>
+      <div class="summary-grid nav-cells" id="summary-grid"></div>
+      <div class="legend">
+        <span><span class="swatch is-correct" aria-hidden="true">✓</span> Correct</span>
+        <span><span class="swatch is-incorrect" aria-hidden="true">✗</span> Incorrect</span>
+        <span><span class="swatch is-blank" aria-hidden="true">–</span> Not answered</span>
+        <span><span class="swatch is-flagged" aria-hidden="true">⚑</span> Flagged</span>
+      </div>
+      <p class="hint">Select any question to see the correct answer and rationale.</p>
+    </section>
+
+    <section id="review-panel" class="card review-panel hidden no-print">
+      <div class="review-top">
+        <span class="review-counter" id="review-counter"></span>
+        <button class="btn small" onclick="closeReview()">Close</button>
+      </div>
+      <div id="review-body"></div>
+      <div class="nav-row">
+        <button class="btn" id="rev-prev" onclick="revPrev()">← Previous</button>
+        <button class="btn" id="rev-next-wrong">Next incorrect →</button>
+        <button class="btn" id="rev-next" onclick="revNext()">Next →</button>
+      </div>
+    </section>
+
+    <div class="nav-row no-print">
+      <button class="btn primary" onclick="window.print()">Print score report</button>
+    </div>
+    <p class="hint no-print">The printed report contains your score and domain
+       breakdown only — not the questions.</p>
+  </div>
+</div>
+
+<!-- ══ NAVIGATOR OVERLAY ══════════════════════════════════════════════ -->
+<div id="nav-overlay" class="overlay hidden">
+  <div class="nav-panel" role="dialog" aria-modal="true" aria-labelledby="nav-title">
+    <div class="nav-panel-head">
+      <h2 id="nav-title">Question navigator</h2>
+      <button class="icon-btn" id="nav-close" aria-label="Close navigator">✕</button>
+    </div>
+    <p class="nav-counts" id="nav-counts"></p>
+    <div class="chips" id="nav-filters"></div>
+    <div class="nav-panel-body" id="nav-body"></div>
+    <div class="legend">
+      <span><span class="swatch is-answered" aria-hidden="true">●</span> Answered</span>
+      <span><span class="swatch is-blank" aria-hidden="true"></span> Not answered</span>
+      <span><span class="swatch is-flagged" aria-hidden="true">⚑</span> Flagged</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ══════════════════════════════════════════════════════════ -->
+<div id="modal-overlay" class="overlay hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <h2 id="modal-title"></h2>
-    <p id="modal-body"></p>
+    <div id="modal-body"></div>
     <div class="modal-btns" id="modal-btns"></div>
   </div>
 </div>
 
-</div>
-
-<!-- Load order matters: data and primitives before the screens that use them. -->
-<script src="js/questions.js"></script>
+<script src="js/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/state.js"></script>
+<script src="js/navigator.js"></script>
 <script src="js/exam.js"></script>
 <script src="js/review.js"></script>
 </body>

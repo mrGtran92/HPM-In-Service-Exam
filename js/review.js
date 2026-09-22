@@ -1,209 +1,271 @@
 /* ---------------------------------------------------------------------------
- * RESULTS + REVIEW — scoring, domain breakdown, summary grid, rationale panel.
+ * SUBMISSION, RESULTS, REVIEW
  *
- * Phase 0 grades client-side against the bundled key, as the pilot did.
- * Phase 2 moves grading to the server: this module then renders the graded
- * result the server returns instead of computing it, and rationales arrive in
- * that response rather than being bundled with the page.
+ * Submission is the part the pilot got wrong. It used mode:'no-cors', whose
+ * response is opaque, so the promise resolved whether or not the server had
+ * stored anything — and the fellow saw "successfully submitted" either way.
+ * Here the response is read, retried on failure, and the attempt is never
+ * declared saved until the server says so. If every retry fails, the fellow
+ * can download their attempt as a file so the work is never lost.
  * ------------------------------------------------------------------------- */
 
-function submitExam() {
+const RETRY_DELAYS_MS = [1000, 3000, 8000];
+
+async function doSubmit() {
+  state.stopServerBackup();
+  window.removeEventListener('beforeunload', beforeUnload);
+  clearInterval(clockTimer);
+
   hide('exam-screen');
   show('results-screen');
+  document.body.classList.remove('in-exam');
+  window.scrollTo(0, 0);
 
-  const totalCorrect = state.answers.filter((a, i) => a === ITEMS[i].correct).length;
-  const totalPct = Math.round((totalCorrect / ITEMS.length) * 100);
+  const payload = state.submissionPayload();
+  setSubmitStatus('pending', 'Submitting your answers…');
 
-  const domains = {};
-  ITEMS.forEach((q, i) => {
-    if (!domains[q.domain]) domains[q.domain] = { correct: 0, total: 0 };
-    domains[q.domain].total++;
-    if (state.answers[i] === q.correct) domains[q.domain].correct++;
-  });
+  let lastErr = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const result = await api.submitAttempt(payload);
+      onSubmitted(result);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        setSubmitStatus('pending',
+          `Submission failed — retrying (${attempt + 1} of ${RETRY_DELAYS_MS.length})…`);
+        await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+  }
+  onSubmitFailed(lastErr, payload);
+}
 
-  $('fellow-display').textContent =
-    state.fellowName + ' · ' + state.fellowEmail + ' · ' + new Date().toLocaleDateString();
-  $('final-score').textContent = totalPct + '%';
-  $('final-label').textContent = totalCorrect + ' of ' + ITEMS.length + ' correct';
+function onSubmitted(result) {
+  state.submitted = true;
+  state.result = result;
+  state.result.byItem = {};
+  result.items.forEach(i => { state.result.byItem[i.item_id] = i; });
+  state.clearLocal();
 
-  let bHTML = '<div style="font-size:13px;font-weight:500;color:#6B6560;margin-bottom:8px;">Performance by domain</div>';
-  Object.entries(domains).forEach(([name, d]) => {
-    const dpct = Math.round((d.correct / d.total) * 100);
-    const pc = dpct >= 80 ? 'pill-strong' : dpct >= 60 ? 'pill-mid' : 'pill-weak';
-    bHTML += `<div class="domain-row"><span>${name}</span><span class="pill ${pc}">${d.correct}/${d.total} (${dpct}%)</span></div>`;
-  });
-  $('domain-breakdown').innerHTML = bHTML;
-
+  setSubmitStatus('success', 'Your answers have been recorded.');
+  renderScore();
   renderSummaryGrid();
-  sendResults(domains, totalCorrect, totalPct);
+  show('results-body');
 }
 
-function sendResults(domains, totalCorrect, totalPct) {
-  const statusBox = $('submit-status-box');
-  statusBox.innerHTML = `<div class="submit-status pending">⏳ &nbsp;Submitting results...</div>`;
+function onSubmitFailed(err, payload) {
+  // The attempt is NOT lost: the local copy is deliberately left in place and
+  // the fellow is given a file they can hand to the program.
+  setSubmitStatus('error',
+    'Your answers could not be sent. They are still saved on this computer. '
+    + 'Please download the file below and give it to the program director — do not close this tab first.');
+  $('failed-actions').classList.remove('hidden');
+  $('download-attempt').onclick = () => downloadAttempt(payload);
+  $('retry-submit').onclick = () => doSubmit();
+  console.error('Submission failed:', err);
+}
 
-  const domainScores = {};
-  Object.entries(domains).forEach(([name, d]) => { domainScores[name] = d.correct + '/' + d.total; });
+function downloadAttempt(payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const who = (state.fellowEmail || 'attempt').replace(/[^a-z0-9]+/gi, '-');
+  a.href = url;
+  a.download = `hpm-exam-${who}-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
-  // Phase 2 replaces this rollup-only payload with item-level responses — one
-  // record per item — which is what makes item analysis possible at all.
-  const payload = {
-    fellowName: state.fellowName,
-    fellowEmail: state.fellowEmail,
-    totalPct,
-    totalCorrect: totalCorrect + '/' + ITEMS.length,
-    durationSec: state.elapsedSeconds(),
-    domains: domainScores
-  };
+function setSubmitStatus(kind, msg) {
+  $('submit-status').className = 'submit-status ' + kind;
+  $('submit-status').textContent = msg;
+}
 
-  api.submitAttempt(payload).then(() => {
-    localStorage.setItem('hpm_exam_submitted', 'true');
-    // KNOWN DEFECT (plan #1): with mode:'no-cors' this runs even when the
-    // server wrote nothing. Phase 3 gates it on a parsed server response.
-    statusBox.innerHTML = `<div class="submit-status success">✓ &nbsp;Results successfully submitted to the program.</div>`;
-  }).catch(() => {
-    statusBox.innerHTML = `<div class="submit-status error">⚠ &nbsp;Submission failed — please screenshot this page and email it to the program director.</div>`;
+/* ----------------------------------------------------------------- score -- */
+
+function renderScore() {
+  const r = state.result;
+  $('fellow-display').textContent =
+    `${state.fellowName} · ${state.fellowEmail} · ${new Date().toLocaleDateString()}`;
+  $('final-score').textContent = r.score.pct + '%';
+  $('final-label').textContent =
+    `${r.score.correct} of ${r.score.total} correct · ${formatDuration(state.elapsedSeconds())}`;
+
+  // Bars, not pills: with seven domains this is the part faculty actually
+  // read, and relative height is far easier to scan than a list of fractions.
+  $('domain-breakdown').innerHTML = r.domains.map(d => {
+    const tone = d.pct >= 80 ? 'strong' : d.pct >= 60 ? 'mid' : 'weak';
+    const thin = d.total < 4;
+    return `
+      <div class="dbar-row">
+        <div class="dbar-label">
+          ${esc(d.domain)}
+          ${thin ? '<span class="dbar-note" title="Too few questions to interpret reliably">n=' + d.total + '</span>' : ''}
+        </div>
+        <div class="dbar-track"><div class="dbar-fill ${tone}" style="width:${d.pct}%"></div></div>
+        <div class="dbar-val">${d.correct}/${d.total}<span class="dbar-pct">${d.pct}%</span></div>
+      </div>`;
+  }).join('');
+}
+
+/* ------------------------------------------------------------------ grid -- */
+
+let reviewFilter = 'all';
+let reviewPos = 0;
+
+function filteredItems() {
+  return state.items.filter(item => {
+    const id = item.item_id;
+    const answered = state.isAnswered(id);
+    const ok = answered && state.result.byItem[id].correct_choice_id === state.answerFor(id);
+    switch (reviewFilter) {
+      case 'incorrect': return answered && !ok;
+      case 'unanswered': return !answered;
+      case 'flagged': return state.isFlagged(id);
+      default: return true;
+    }
   });
-}
-
-/* ── Summary grid ──────────────────────────────────────────────────────── */
-
-function getFilteredIndices() {
-  const all = ITEMS.map((_, i) => i);
-  if (state.reviewFilter === 'incorrect') return all.filter(i => state.answers[i] !== ITEMS[i].correct);
-  if (state.reviewFilter === 'flagged') return all.filter(i => state.flagged[i]);
-  return all;
 }
 
 function renderSummaryGrid() {
-  const grid = $('summary-grid');
-  const emptyMsg = $('empty-filter-msg');
-  const indices = getFilteredIndices();
-  grid.innerHTML = '';
+  const counts = { all: 0, incorrect: 0, unanswered: 0, flagged: 0 };
+  state.items.forEach(item => {
+    const id = item.item_id;
+    const answered = state.isAnswered(id);
+    const ok = answered && state.result.byItem[id].correct_choice_id === state.answerFor(id);
+    counts.all++;
+    if (answered && !ok) counts.incorrect++;
+    if (!answered) counts.unanswered++;
+    if (state.isFlagged(id)) counts.flagged++;
+  });
 
-  if (indices.length === 0) {
-    emptyMsg.classList.remove('hidden');
-    emptyMsg.textContent = state.reviewFilter === 'flagged'
-      ? 'No questions were flagged during the exam.'
-      : 'No incorrect answers — well done!';
+  // "Unanswered" is its own filter, not folded into "Incorrect" as the pilot
+  // had it — a question skipped and a question answered wrongly are
+  // pedagogically different things.
+  $('review-filters').innerHTML = [
+    ['all', 'All'], ['incorrect', 'Incorrect'], ['unanswered', 'Unanswered'], ['flagged', 'Flagged'],
+  ].map(([k, label]) =>
+    `<button class="chip${reviewFilter === k ? ' chip-on' : ''}" data-rfilter="${k}"
+       aria-pressed="${reviewFilter === k}">${label} <span class="chip-n">${counts[k]}</span></button>`
+  ).join('');
+
+  const items = filteredItems();
+  if (!items.length) {
+    $('summary-grid').innerHTML = `<p class="nav-empty">Nothing matches this filter.</p>`;
     return;
   }
-  emptyMsg.classList.add('hidden');
 
-  indices.forEach((qi, pos) => {
-    const isCorrect = state.answers[qi] === ITEMS[qi].correct;
-    const isSkipped = state.answers[qi] === null;
-    let cls = 'q-tile', icon = '';
-    if (isSkipped) { cls += ' skipped'; icon = '—'; }
-    else if (state.flagged[qi]) { cls += ' flagged-tile'; icon = '⚑'; }
-    else if (isCorrect) { cls += ' correct'; icon = '✓'; }
-    else { cls += ' incorrect'; icon = '✗'; }
-    if (state.reviewOpen && state.reviewIndex === pos) cls += ' active-tile';
+  $('summary-grid').innerHTML = items.map(item => {
+    const id = item.item_id;
+    const pos = state.items.indexOf(item);
+    const answered = state.isAnswered(id);
+    const flagged = state.isFlagged(id);
+    let base, glyph, label;
+    if (!answered) { base = 'blank'; glyph = '–'; label = 'not answered'; }
+    else if (state.result.byItem[id].correct_choice_id === state.answerFor(id)) {
+      base = 'correct'; glyph = '✓'; label = 'correct';
+    } else { base = 'incorrect'; glyph = '✗'; label = 'incorrect'; }
 
-    const tile = document.createElement('button');
-    tile.className = cls;
-    tile.innerHTML = `<span class="tile-num">Q${qi + 1}</span><span class="tile-icon">${icon}</span>`;
-    tile.onclick = () => openReviewAt(pos);
-    grid.appendChild(tile);
-  });
+    return `<button class="nav-cell is-${base}${flagged ? ' is-flagged' : ''}" data-rpos="${pos}"
+              aria-label="Question ${pos + 1}, ${label}${flagged ? ', flagged' : ''}">
+              <span class="nav-cell-n">${pos + 1}</span>
+              <span class="nav-cell-glyph" aria-hidden="true">${glyph}</span>
+              ${flagged ? '<span class="nav-cell-flag" aria-hidden="true">⚑</span>' : ''}
+            </button>`;
+  }).join('');
 }
 
-function setFilter(f) {
-  state.reviewFilter = f;
-  state.reviewIndex = 0;
-  state.reviewOpen = false;
-  ['all', 'incorrect', 'flagged'].forEach(x => {
-    $('tab-' + x).className = 'btn' + (f === x ? ' active-tab' : '');
-  });
+function setReviewFilter(f) {
+  reviewFilter = f;
+  reviewPos = 0;
   renderSummaryGrid();
   hide('review-panel');
 }
 
-/* ── Review panel ──────────────────────────────────────────────────────── */
+/* ---------------------------------------------------------------- review -- */
 
-function openReviewAt(pos) {
-  state.reviewIndex = pos;
-  state.reviewOpen = true;
-  renderSummaryGrid();
-  renderReviewQuestion();
+function openReview(pos) {
+  reviewPos = pos;
+  renderReview();
   show('review-panel');
   $('review-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function closeReview() {
-  state.reviewOpen = false;
-  renderSummaryGrid();
-  hide('review-panel');
-}
+function closeReview() { hide('review-panel'); }
 
-function renderReviewQuestion() {
-  const indices = getFilteredIndices();
-  if (indices.length === 0) return;
+function renderReview() {
+  const item = state.items[reviewPos];
+  const id = item.item_id;
+  const key = state.result.byItem[id];
+  const chosen = state.answerFor(id);
+  const ok = chosen === key.correct_choice_id;
 
-  const qi = indices[state.reviewIndex];
-  const q = ITEMS[qi];
-  const isCorrect = state.answers[qi] === q.correct;
-  const cl = choiceLetter(q.correct);
+  $('review-counter').textContent = `Question ${reviewPos + 1} of ${state.items.length}`;
+  $('rev-prev').disabled = reviewPos === 0;
+  $('rev-next').disabled = reviewPos === state.items.length - 1;
 
-  $('review-counter').textContent =
-    'Question ' + (state.reviewIndex + 1) + ' of ' + indices.length + ' (' + state.reviewFilter + ')';
-  $('rev-prev').disabled = state.reviewIndex === 0;
-  $('rev-next').disabled = state.reviewIndex === indices.length - 1;
+  const nextBad = state.items.findIndex((it, i) =>
+    i > reviewPos && state.answerFor(it.item_id) !== state.result.byItem[it.item_id].correct_choice_id);
+  $('rev-next-wrong').classList.toggle('hidden', nextBad === -1);
+  $('rev-next-wrong').onclick = () => openReview(nextBad);
 
-  let choicesHTML = '';
-  q.choices.forEach((c, ci) => {
-    let cls = 'choice-btn';
+  const choices = item.choices.map(c => {
+    let cls = 'choice review';
     let icon = '';
-    if (ci === q.correct) {
+    if (c.id === key.correct_choice_id) {
       cls += ' correct';
-      icon = '<span class="result-icon" style="color:#0F6E56">✓</span>';
-    } else if (ci === state.answers[qi]) {
+      icon = '<span class="result-icon" aria-label="correct answer">✓</span>';
+    } else if (c.id === chosen) {
       cls += ' incorrect';
-      icon = '<span class="result-icon" style="color:#A32D2D">✗</span>';
+      icon = '<span class="result-icon" aria-label="your answer, incorrect">✗</span>';
     }
-    choicesHTML += `<button class="${cls}" disabled><span class="choice-letter">${choiceLetter(ci)}.</span><span class="choice-text">${c}</span>${icon}</button>`;
-  });
+    return `<div class="${cls}">
+              <span class="choice-letter" aria-hidden="true">${choiceLetter(c.id)}</span>
+              <span class="choice-text">${esc(c.text)}</span>${icon}
+            </div>`;
+  }).join('');
 
-  const distHTML = q.rationale.distractors
-    .map(d => `<div class="rationale-distractor"><p><strong>Choice ${d.label}:</strong> ${d.text}</p></div>`)
+  const distractors = item.choices
+    .filter(c => c.id !== key.correct_choice_id && key.rationales[c.id])
+    .map(c => `<p class="rationale-distractor"><strong>${choiceLetter(c.id)} is incorrect:</strong> ${esc(key.rationales[c.id])}</p>`)
     .join('');
 
-  const yourAnswer = state.answers[qi] !== null
-    ? choiceLetter(state.answers[qi]) + '. ' + q.choices[state.answers[qi]]
-    : 'Not answered';
-
-  $('review-q-container').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span class="domain-badge ${q.domainClass}">${q.domain}</span>
-      <span style="font-size:13px;font-weight:500;color:${isCorrect ? '#0F6E56' : '#A32D2D'}">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>
+  $('review-body').innerHTML = `
+    <div class="review-head">
+      <span class="domain-badge ${domainClass(item.domain)}">${esc(item.domain)}</span>
+      <span class="verdict ${chosen == null ? 'blank' : ok ? 'ok' : 'bad'}">
+        ${chosen == null ? '– Not answered' : ok ? '✓ Correct' : '✗ Incorrect'}
+        ${state.isFlagged(id) ? ' · ⚑ Flagged' : ''}
+      </span>
     </div>
-    <div class="q-num">Question ${qi + 1} of ${ITEMS.length}${state.flagged[qi] ? ' · ⚑ Flagged' : ''}</div>
-    <div class="q-stem">${q.stem}</div>
-    <div class="q-lead">${q.lead}</div>
-    <div class="choices" style="margin-bottom:12px;">${choicesHTML}</div>
-    <div style="font-size:13px;color:#6B6560;margin-bottom:4px;">Your answer: <strong>${yourAnswer}</strong></div>
-    <div style="font-size:13px;color:#0F6E56;margin-bottom:12px;">Correct answer: <strong>${cl}. ${q.choices[q.correct]}</strong></div>
+    <div class="q-stem">${esc(item.stem)}</div>
+    <div class="choices">${choices}</div>
     <div class="rationale">
-      <div class="rationale-key">Correct answer — Choice ${cl}: ${q.rationale.key}</div>
-      ${distHTML}
-      <div class="rationale-ref">${q.rationale.ref}</div>
+      <p class="rationale-key"><strong>Correct answer — ${choiceLetter(key.correct_choice_id)}.</strong>
+        ${esc(key.key_rationale)}</p>
+      ${distractors}
+      ${key.reference ? `<p class="rationale-ref">${esc(key.reference)}</p>` : ''}
     </div>`;
 }
 
-function revPrev() {
-  if (state.reviewIndex > 0) { state.reviewIndex--; renderReviewQuestion(); renderSummaryGrid(); }
-}
-function revNext() {
-  if (state.reviewIndex < getFilteredIndices().length - 1) { state.reviewIndex++; renderReviewQuestion(); renderSummaryGrid(); }
-}
+function revPrev() { if (reviewPos > 0) openReview(reviewPos - 1); }
+function revNext() { if (reviewPos < state.items.length - 1) openReview(reviewPos + 1); }
 
-/* ── Print ─────────────────────────────────────────────────────────────── */
+/* ------------------------------------------------------------------ wire -- */
 
-let _filterBeforePrint = 'all';
-window.addEventListener('beforeprint', () => {
-  _filterBeforePrint = state.reviewFilter;
-  if (state.reviewFilter !== 'all') setFilter('all');
-});
-window.addEventListener('afterprint', () => {
-  if (_filterBeforePrint !== 'all') setFilter(_filterBeforePrint);
+window.addEventListener('DOMContentLoaded', () => {
+  $('review-filters').addEventListener('click', e => {
+    const c = e.target.closest('[data-rfilter]');
+    if (c) setReviewFilter(c.dataset.rfilter);
+  });
+  $('summary-grid').addEventListener('click', e => {
+    const c = e.target.closest('[data-rpos]');
+    if (c) openReview(parseInt(c.dataset.rpos, 10));
+  });
+  $('results-nav-btn').addEventListener('click', () =>
+    navigator_.open({ mode: 'review', onPick: openReview }));
 });

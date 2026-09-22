@@ -1,61 +1,167 @@
 /* ---------------------------------------------------------------------------
- * EXAM STATE
+ * EXAM STATE + TWO-LAYER AUTOSAVE
  *
- * Phase 0: in-memory only, exactly as the pilot behaved.
+ * Local  (localStorage, every change)  survives tab close, crash, sleep.
+ * Server (throttled, ~30s)             survives the laptop dying outright.
  *
- * Phase 3 adds autosave/resume here — persisting {attempt_id, answers, flags,
- * started_at} to localStorage on every mutation and offering resume on load.
- * That is why every write goes through a setter rather than touching the
- * arrays directly: the persistence hook has one place to live.
+ * Local is authoritative while the exam runs; the server copy is consulted
+ * only when there is no local copy — i.e. the fellow has moved machines. A
+ * network outage degrades to local-only and re-syncs silently; the fellow is
+ * never interrupted and never sees an error from the backup path.
+ *
+ * Every mutation goes through a setter so persistence has exactly one hook.
  * ------------------------------------------------------------------------- */
 
 const state = {
+  attemptId: null,
+  items: [],
   current: 0,
-  answers: [],
-  flagged: [],
+  answers: {},        // item_id -> choice_id
+  flags: {},          // item_id -> true
   fellowName: '',
   fellowEmail: '',
   startedAt: null,
+  submitted: false,
+  result: null,       // server grading, populated after submit
 
   // Results-screen review state
   reviewFilter: 'all',
   reviewIndex: 0,
-  reviewOpen: false,
 
-  init(itemCount) {
+  _saveTimer: null,
+  _dirty: false,
+  _lastSaved: null,
+  _onSaveStateChange: null,
+
+  /* ------------------------------------------------------------- setup -- */
+
+  begin({ attemptId, items, name, email, restore }) {
+    this.attemptId = attemptId;
+    this.items = items;
+    this.fellowName = name;
+    this.fellowEmail = email;
     this.current = 0;
-    this.answers = new Array(itemCount).fill(null);
-    this.flagged = new Array(itemCount).fill(false);
+    this.answers = {};
+    this.flags = {};
     this.startedAt = new Date();
+    this.submitted = false;
+
+    if (restore) {
+      this.answers = restore.answers || {};
+      this.flags = restore.flags || {};
+      this.current = Math.min(restore.current || 0, items.length - 1);
+      if (restore.startedAt) this.startedAt = new Date(restore.startedAt);
+      if (restore.attemptId) this.attemptId = restore.attemptId;
+    }
+    this._startServerBackup();
   },
 
-  setAnswer(i, choiceIdx) {
-    this.answers[i] = choiceIdx;
+  /* ----------------------------------------------------------- mutation -- */
+
+  setAnswer(itemId, choiceId) {
+    this.answers[itemId] = choiceId;
     this.persist();
   },
 
-  toggleFlag(i) {
-    this.flagged[i] = !this.flagged[i];
+  toggleFlag(itemId) {
+    if (this.flags[itemId]) delete this.flags[itemId];
+    else this.flags[itemId] = true;
     this.persist();
   },
 
   goTo(i) {
-    this.current = i;
+    this.current = Math.max(0, Math.min(i, this.items.length - 1));
+    this.persist();
   },
 
-  answeredCount() {
-    return this.answers.filter(a => a !== null).length;
-  },
+  /* ------------------------------------------------------------ queries -- */
 
-  unansweredCount() {
-    return this.answers.filter(a => a === null).length;
-  },
+  item(i) { return this.items[i === undefined ? this.current : i]; },
+  answerFor(itemId) { return this.answers[itemId] ?? null; },
+  isFlagged(itemId) { return !!this.flags[itemId]; },
+  isAnswered(itemId) { return this.answers[itemId] != null; },
 
-  /** Elapsed seconds — recorded as duration_sec on submit (soft timer). */
+  answeredCount() { return this.items.filter(i => this.isAnswered(i.item_id)).length; },
+  flaggedCount() { return this.items.filter(i => this.isFlagged(i.item_id)).length; },
+  unansweredItems() { return this.items.filter(i => !this.isAnswered(i.item_id)); },
+
   elapsedSeconds() {
     return this.startedAt ? Math.round((Date.now() - this.startedAt.getTime()) / 1000) : 0;
   },
 
-  /** Phase 3: write to localStorage. No-op in Phase 0 to preserve behavior. */
-  persist() {}
+  snapshot() {
+    return {
+      attemptId: this.attemptId,
+      email: this.fellowEmail,
+      name: this.fellowName,
+      answers: this.answers,
+      flags: this.flags,
+      current: this.current,
+      startedAt: this.startedAt ? this.startedAt.toISOString() : null,
+      savedAt: new Date().toISOString(),
+    };
+  },
+
+  submissionPayload() {
+    return {
+      attempt_id: this.attemptId,
+      email: this.fellowEmail,
+      name: this.fellowName,
+      duration_sec: this.elapsedSeconds(),
+      responses: this.items.map(i => ({
+        item_id: i.item_id,
+        choice_id: this.answerFor(i.item_id),
+        flagged: this.isFlagged(i.item_id),
+      })),
+    };
+  },
+
+  /* -------------------------------------------------------- persistence -- */
+
+  persist() {
+    if (this.submitted) return;
+    this._dirty = true;
+    try {
+      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.snapshot()));
+      this._lastSaved = new Date();
+      this._emitSaveState('saved');
+    } catch (e) {
+      // Private mode, or storage full. The exam must continue regardless —
+      // the server backup is then the only safety net, which is precisely
+      // why there are two layers.
+      this._emitSaveState('local-failed');
+    }
+  },
+
+  /** Read a local copy without committing to it. */
+  readLocal() {
+    try {
+      const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  clearLocal() {
+    try { localStorage.removeItem(CONFIG.STORAGE_KEY); } catch (e) { /* nothing to do */ }
+  },
+
+  _startServerBackup() {
+    clearInterval(this._saveTimer);
+    this._saveTimer = setInterval(() => {
+      if (!this._dirty || this.submitted) return;
+      const snap = this.snapshot();
+      this._dirty = false;
+      api.saveProgress(snap).catch(() => {
+        // Backup only. Local storage already holds this; retry next tick.
+        this._dirty = true;
+      });
+    }, CONFIG.SERVER_SAVE_INTERVAL_MS);
+  },
+
+  stopServerBackup() { clearInterval(this._saveTimer); this._saveTimer = null; },
+
+  onSaveStateChange(fn) { this._onSaveStateChange = fn; },
+  _emitSaveState(s) { if (this._onSaveStateChange) this._onSaveStateChange(s, this._lastSaved); },
 };

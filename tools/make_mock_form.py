@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""
+Build a local development fixture from the item CSV.
+
+    python3 tools/make_mock_form.py tools/out/items_draft.csv
+
+Writes TWO files into dev/ (gitignored — never committed, never deployed):
+
+  dev/mock-form.json    what the server WILL send: no answer key
+  dev/mock-key.json     the key, used only by the mock grader in the browser
+
+They are separate on purpose. The split mirrors the real security boundary, so
+if the exam page ever reads a field it shouldn't, it breaks here in development
+rather than leaking in production.
+
+Retired items are excluded, exactly as the published form will exclude them.
+"""
+
+import argparse
+import csv
+import json
+import os
+import sys
+
+CHOICES = ['a', 'b', 'c', 'd', 'e']
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('csv_path')
+    ap.add_argument('--outdir', default='dev')
+    ap.add_argument('--version', default='dev-local')
+    args = ap.parse_args()
+
+    with open(args.csv_path, newline='', encoding='utf-8') as fh:
+        rows = [r for r in csv.DictReader(fh)
+                if (r.get('status') or '').strip() != 'retired']
+
+    items, key = [], {}
+    for r in rows:
+        iid = int(r['item_id'])
+        items.append({
+            'item_id': iid,
+            'domain': r['report_domain'],
+            'title': r['title'],
+            'stem': r['stem'],
+            'choices': [{'id': c, 'text': r['choice_' + c]}
+                        for c in CHOICES if r.get('choice_' + c)],
+        })
+        key[str(iid)] = {
+            'correct_choice_id': r['correct_choice_id'],
+            'key_rationale': r['key_rationale'],
+            'rationales': {c: r['rat_' + c] for c in CHOICES if r.get('rat_' + c)},
+            'reference': r.get('reference', ''),
+        }
+
+    os.makedirs(args.outdir, exist_ok=True)
+    form = {'form_version': args.version, 'item_count': len(items), 'items': items}
+
+    form_path = os.path.join(args.outdir, 'mock-form.json')
+    key_path = os.path.join(args.outdir, 'mock-key.json')
+    with open(form_path, 'w', encoding='utf-8') as fh:
+        json.dump(form, fh, ensure_ascii=False, indent=1)
+    with open(key_path, 'w', encoding='utf-8') as fh:
+        json.dump(key, fh, ensure_ascii=False, indent=1)
+
+    # Guard: the served form must not carry key material. Check FIELD NAMES,
+    # not a substring of the serialized blob — question prose legitimately
+    # contains words like "reference", and matching on those is a false alarm.
+    banned = {'correct_choice_id', 'key_rationale', 'rationales', 'reference',
+              'rat_a', 'rat_b', 'rat_c', 'rat_d', 'rat_e', 'is_correct', 'correct'}
+
+    def all_keys(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                yield k
+                yield from all_keys(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from all_keys(v)
+
+    leaked = sorted(banned & set(all_keys(form)))
+    if leaked:
+        print('FAIL: key material present in mock-form.json:', leaked)
+        return 1
+
+    domains = {}
+    for i in items:
+        domains[i['domain']] = domains.get(i['domain'], 0) + 1
+    print(f'{len(items)} live items -> {form_path} ({os.path.getsize(form_path)//1024} KB)')
+    print(f'{len(key)} keys       -> {key_path}')
+    print('\nform contains no key material: OK\n')
+    for d, n in sorted(domains.items(), key=lambda kv: -kv[1]):
+        print(f'   {n:3}  {d}')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
