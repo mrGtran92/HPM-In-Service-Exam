@@ -44,14 +44,48 @@ const api = (() => {
   let _mockForm = null;
   let _mockKey = null;
 
+  /** Load a script tag and resolve when it runs. Works on file://, where
+   *  fetch() is blocked by the browser's same-origin rules. */
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('could not load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
   async function mockLoad() {
     if (_mockForm) return;
-    const [f, k] = await Promise.all([
-      fetch('dev/mock-form.json').then(r => r.json()),
-      fetch('dev/mock-key.json').then(r => r.json()),
-    ]);
-    _mockForm = f;
-    _mockKey = k;
+
+    // Preferred path: dev/mock-data.js, which works both over http:// and
+    // when index.html is opened directly from Finder.
+    if (!window.__MOCK_FORM) {
+      try { await loadScript('dev/mock-data.js'); } catch (e) { /* fall through */ }
+    }
+    if (window.__MOCK_FORM && window.__MOCK_KEY) {
+      _mockForm = window.__MOCK_FORM;
+      _mockKey = window.__MOCK_KEY;
+      return;
+    }
+
+    // Fallback for http:// if only the JSON fixtures exist.
+    try {
+      const [f, k] = await Promise.all([
+        fetch('dev/mock-form.json').then(r => r.json()),
+        fetch('dev/mock-key.json').then(r => r.json()),
+      ]);
+      _mockForm = f;
+      _mockKey = k;
+      return;
+    } catch (e) { /* fall through to the explanatory error */ }
+
+    throw new Error(
+      'Could not load the practice questions. Run this from a local server '
+      + '(python3 -m http.server 8777, then open http://localhost:8777), or '
+      + 'regenerate the preview files with: python3 tools/make_mock_form.py tools/out/items_draft.csv'
+    );
   }
 
   function mockGrade(payload) {
