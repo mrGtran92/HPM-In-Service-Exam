@@ -183,7 +183,11 @@ function renderQuestion() {
   $('q-container').innerHTML = `
     <article class="card">
       <div class="q-head">
-        <span class="domain-badge ${domainClass(item.domain)}">${esc(item.domain)}</span>
+        <!-- No domain label during the exam. Seeing "Ethics & law" before
+             reading the stem narrows the reasoning and cues the answer. The
+             domain stays on the item in the Sheet, so faculty analytics and
+             the fellow's own post-submission breakdown are unaffected. -->
+        <span class="q-counter">Question ${state.current + 1} of ${state.items.length}</span>
         <button class="flag-btn${flagged ? ' on' : ''}" id="flag-btn"
                 aria-pressed="${flagged}" title="Flag for review (F)">
           <span aria-hidden="true">${flagged ? '⚑' : '⚐'}</span>

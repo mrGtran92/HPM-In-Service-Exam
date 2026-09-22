@@ -86,27 +86,32 @@ const navigator_ = (() => {
                  aria-pressed="${filter === k}">${label} <span class="chip-n">${n}</span></button>`;
     }).join('');
 
-    // Grid, grouped by domain
-    const groups = [];
-    DOMAIN_ORDER.forEach(d => {
-      const items = state.items.filter(i => i.domain === d && passesFilter(i));
-      if (items.length) groups.push([d, items]);
-    });
-    const ungrouped = state.items.filter(i => !DOMAIN_ORDER.includes(i.domain) && passesFilter(i));
-    if (ungrouped.length) groups.push(['Other', ungrouped]);
-
-    if (!groups.length) {
-      $('nav-body').innerHTML =
-        `<p class="nav-empty">No questions match this filter.</p>`;
+    const visible = state.items.filter(passesFilter);
+    if (!visible.length) {
+      $('nav-body').innerHTML = `<p class="nav-empty">No questions match this filter.</p>`;
       return;
     }
+
+    // During the exam the grid is FLAT — grouping by domain would leak the
+    // same cue the per-question badge does. In review, after submission, the
+    // domain is useful and no longer influences anything, so group by it.
+    if (mode === 'exam') {
+      $('nav-body').innerHTML = `<div class="nav-cells">${visible.map(cell).join('')}</div>`;
+      return;
+    }
+
+    const groups = [];
+    DOMAIN_ORDER.forEach(d => {
+      const items = visible.filter(i => i.domain === d);
+      if (items.length) groups.push([d, items]);
+    });
+    const other = visible.filter(i => !DOMAIN_ORDER.includes(i.domain));
+    if (other.length) groups.push(['Other', other]);
 
     $('nav-body').innerHTML = groups.map(([domain, items]) => `
       <section class="nav-group">
         <h3 class="nav-group-title">${esc(domain)} <span class="nav-group-n">${items.length}</span></h3>
-        <div class="nav-cells">
-          ${items.map(it => cell(it)).join('')}
-        </div>
+        <div class="nav-cells">${items.map(cell).join('')}</div>
       </section>`).join('');
   }
 

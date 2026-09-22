@@ -5,11 +5,11 @@
 
 :root{
   --bg:#F5F5F3; --surface:#fff; --line:#E0DEDA; --line-2:#DEDAD7;
-  --ink:#1C1C1C; --ink-2:#6B6560; --ink-3:#8A837C;
+  --ink:#1C1C1C; --ink-2:#6B6560; --ink-3:#6E6862;
   --blue:#185FA5; --blue-dk:#0C447C; --blue-lt:#E6F1FB;
   --green:#0F6E56; --green-lt:#E1F5EE; --green-br:#5DCAA5;
   --red:#A32D2D; --red-lt:#FCEBEB; --red-br:#F09595;
-  --amber:#BA7517; --amber-lt:#FAEEDA; --amber-br:#FAC775;
+  --amber:#965D0E; --amber-lt:#FAEEDA; --amber-br:#FAC775;
   --radius:12px;
 }
 
@@ -94,9 +94,11 @@ kbd{display:inline-block;padding:1px 5px;border:1px solid var(--line-2);border-b
 /* ── Question ────────────────────────────────────────────────────────── */
 .q-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
   margin-bottom:14px;flex-wrap:wrap;}
-.q-heading{font-size:12px;font-weight:500;color:var(--ink-2);text-transform:uppercase;
-  letter-spacing:.05em;margin-bottom:8px;outline:none;}
-.q-stem{font-size:15px;line-height:1.75;margin-bottom:18px;}
+.q-heading{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+  white-space:nowrap;}
+.q-counter{font-size:12px;font-weight:500;color:var(--ink-2);text-transform:uppercase;
+  letter-spacing:.05em;}
+.q-stem{font-size:17px;line-height:1.7;margin-bottom:20px;}
 .flag-btn{font-size:12px;color:var(--amber);background:none;border:1px solid transparent;
   border-radius:6px;padding:4px 8px;cursor:pointer;font-family:inherit;display:inline-flex;gap:5px;}
 .flag-btn:hover{background:var(--amber-lt);}
@@ -105,9 +107,9 @@ kbd{display:inline-block;padding:1px 5px;border:1px solid var(--line-2);border-b
 .choices{display:flex;flex-direction:column;gap:8px;}
 .choice{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
   background:var(--bg);border:1.5px solid var(--line-2);border-radius:8px;
-  font-size:14px;line-height:1.55;cursor:pointer;transition:border-color .12s,background .12s;}
+  font-size:16px;line-height:1.55;cursor:pointer;transition:border-color .12s,background .12s;}
 .choice:hover:not(.selected):not(.review){border-color:#B0ACA8;background:var(--surface);}
-.choice-letter{font-weight:600;min-width:18px;color:var(--ink-2);flex-shrink:0;}
+.choice-letter{font-weight:600;min-width:20px;color:var(--ink-2);flex-shrink:0;}
 .choice-text{flex:1;}
 .choice.selected{border-width:2.5px;border-color:var(--blue);background:var(--blue-lt);
   box-shadow:0 0 0 3px rgba(24,95,165,.12);}
