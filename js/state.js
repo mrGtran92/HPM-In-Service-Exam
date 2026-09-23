@@ -18,6 +18,8 @@ const state = {
   current: 0,
   answers: {},        // item_id -> choice_id
   flags: {},          // item_id -> true
+  strikes: {},        // item_id -> {choice_id: true}   fellow's own eliminations
+  highlights: {},     // item_id -> [[start, end], ...] offsets into the stem text
   fellowName: '',
   fellowEmail: '',
   startedAt: null,
@@ -43,12 +45,16 @@ const state = {
     this.current = 0;
     this.answers = {};
     this.flags = {};
+    this.strikes = {};
+    this.highlights = {};
     this.startedAt = new Date();
     this.submitted = false;
 
     if (restore) {
       this.answers = restore.answers || {};
       this.flags = restore.flags || {};
+      this.strikes = restore.strikes || {};
+      this.highlights = restore.highlights || {};
       this.current = Math.min(restore.current || 0, items.length - 1);
       if (restore.startedAt) this.startedAt = new Date(restore.startedAt);
       if (restore.attemptId) this.attemptId = restore.attemptId;
@@ -60,6 +66,45 @@ const state = {
 
   setAnswer(itemId, choiceId) {
     this.answers[itemId] = choiceId;
+    // Choosing an option you had struck out means you changed your mind.
+    if (this.strikes[itemId]) delete this.strikes[itemId][choiceId];
+    this.persist();
+  },
+
+  /* Strikes and highlights are the fellow's scratch marks. They are saved so
+   * a crash or a machine switch keeps them, but they never go to grading. */
+  toggleStrike(itemId, choiceId) {
+    if (this.answers[itemId] === choiceId) return;   // never strike your own answer
+    const s = this.strikes[itemId] || (this.strikes[itemId] = {});
+    if (s[choiceId]) delete s[choiceId];
+    else s[choiceId] = true;
+    this.persist();
+  },
+
+  addHighlight(itemId, start, end) {
+    if (end <= start) return;
+    const merged = [];
+    [...(this.highlights[itemId] || []), [start, end]]
+      .sort((a, b) => a[0] - b[0])
+      .forEach(r => {
+        const last = merged[merged.length - 1];
+        if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+        else merged.push([r[0], r[1]]);
+      });
+    this.highlights[itemId] = merged;
+    this.persist();
+  },
+
+  removeHighlight(itemId, index) {
+    const h = this.highlights[itemId];
+    if (!h) return;
+    h.splice(index, 1);
+    if (!h.length) delete this.highlights[itemId];
+    this.persist();
+  },
+
+  clearHighlights(itemId) {
+    delete this.highlights[itemId];
     this.persist();
   },
 
@@ -80,6 +125,8 @@ const state = {
   answerFor(itemId) { return this.answers[itemId] ?? null; },
   isFlagged(itemId) { return !!this.flags[itemId]; },
   isAnswered(itemId) { return this.answers[itemId] != null; },
+  isStruck(itemId, choiceId) { return !!(this.strikes[itemId] && this.strikes[itemId][choiceId]); },
+  highlightsFor(itemId) { return this.highlights[itemId] || []; },
 
   answeredCount() { return this.items.filter(i => this.isAnswered(i.item_id)).length; },
   flaggedCount() { return this.items.filter(i => this.isFlagged(i.item_id)).length; },
@@ -96,6 +143,8 @@ const state = {
       name: this.fellowName,
       answers: this.answers,
       flags: this.flags,
+      strikes: this.strikes,
+      highlights: this.highlights,
       current: this.current,
       startedAt: this.startedAt ? this.startedAt.toISOString() : null,
       savedAt: new Date().toISOString(),

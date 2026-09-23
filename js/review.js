@@ -50,6 +50,7 @@ function onSubmitted(result) {
   state.clearLocal();
 
   setSubmitStatus('success', 'Your answers have been recorded.');
+  window.addEventListener('beforeunload', resultsBeforeUnload);
   renderScore();
   renderSummaryGrid();
   show('results-body');
@@ -201,8 +202,6 @@ function renderReview() {
   const item = state.items[reviewPos];
   const id = item.item_id;
   const key = state.result.byItem[id];
-  const chosen = state.answerFor(id);
-  const ok = chosen === key.correct_choice_id;
 
   $('review-counter').textContent = `Question ${reviewPos + 1} of ${state.items.length}`;
   $('rev-prev').disabled = reviewPos === 0;
@@ -213,15 +212,24 @@ function renderReview() {
   $('rev-next-wrong').classList.toggle('hidden', nextBad === -1);
   $('rev-next-wrong').onclick = () => openReview(nextBad);
 
+  $('review-body').innerHTML = itemReviewHTML(item, key, state.answerFor(id));
+}
+
+/** One question with its key and rationales. Shared by the on-screen review
+ *  and the saved PDF so the two can never disagree. */
+function itemReviewHTML(item, key, chosen) {
+  const id = item.item_id;
+  const ok = chosen === key.correct_choice_id;
+
   const choices = item.choices.map(c => {
     let cls = 'choice review';
     let icon = '';
     if (c.id === key.correct_choice_id) {
       cls += ' correct';
-      icon = '<span class="result-icon" aria-label="correct answer">✓</span>';
+      icon = `<span class="result-icon" aria-label="correct answer">✓${c.id === chosen ? ' <span class="result-note">your answer</span>' : ''}</span>`;
     } else if (c.id === chosen) {
       cls += ' incorrect';
-      icon = '<span class="result-icon" aria-label="your answer, incorrect">✗</span>';
+      icon = '<span class="result-icon" aria-label="your answer, incorrect">✗ <span class="result-note">your answer</span></span>';
     }
     return `<div class="${cls}">
               <span class="choice-letter" aria-hidden="true">${choiceLetter(c.id)}</span>
@@ -234,9 +242,10 @@ function renderReview() {
     .map(c => `<p class="rationale-distractor"><strong>${choiceLetter(c.id)} is incorrect:</strong> ${esc(key.rationales[c.id])}</p>`)
     .join('');
 
-  $('review-body').innerHTML = `
+  return `
+    <!-- No domain label per question: it distracts from the review. The
+         domain breakdown on the score card is where domains belong. -->
     <div class="review-head">
-      <span class="domain-badge ${domainClass(item.domain)}">${esc(item.domain)}</span>
       <span class="verdict ${chosen == null ? 'blank' : ok ? 'ok' : 'bad'}">
         ${chosen == null ? '– Not answered' : ok ? '✓ Correct' : '✗ Incorrect'}
         ${state.isFlagged(id) ? ' · ⚑ Flagged' : ''}
@@ -250,6 +259,72 @@ function renderReview() {
       ${distractors}
       ${key.reference ? `<p class="rationale-ref">${esc(key.reference)}</p>` : ''}
     </div>`;
+}
+
+/* ------------------------------------------------------------ saved PDF -- */
+
+/* The fellow's own copy of the full review: every question, their answer,
+ * the key and the rationales. Built with the browser's print-to-PDF, so no
+ * third-party PDF library is loaded (invariant 1).
+ *
+ * This deliberately reverses the pilot-era "questions never leave the room"
+ * rule — George's decision, Sep 2026, so fellows can study asynchronously.
+ * The score-only "Print score report" path is unchanged. */
+
+let reviewSaved = false;
+
+function saveFullReview() {
+  showModal('Save your full review as a PDF',
+    `<p>A print window will open. Set <strong>Destination</strong> to
+        <strong>Save as PDF</strong>, then click <strong>Save</strong>.</p>
+     <p>It contains all ${state.items.length} questions with your answer, the correct answer
+        and the explanations. This is the only way to review them after you close this page.</p>`,
+    [{ label: 'Cancel', cls: 'btn', isCancel: true, action: closeModal },
+     { label: 'Open print window', cls: 'btn primary', action: () => { closeModal(); printFullReview(); } }]);
+}
+
+function printFullReview() {
+  const r = state.result;
+  const who = esc(state.fellowName);
+  const date = new Date().toLocaleDateString();
+
+  $('print-review').innerHTML = `
+    <header class="pr-cover">
+      <h1>HPM Fellow In-Service Exam — Full Review</h1>
+      <p class="fellow-line">${who} · ${esc(state.fellowEmail)} · ${esc(date)}</p>
+      <p class="pr-score"><strong>${r.score.pct}%</strong> · ${r.score.correct} of ${r.score.total} correct</p>
+      <table class="pr-domains">
+        ${r.domains.map(d => `<tr><th scope="row">${esc(d.domain)}</th><td>${d.correct}/${d.total}</td><td>${d.pct}%</td></tr>`).join('')}
+      </table>
+      <p class="pr-note">Personal study copy for ${who}. Please do not share or distribute —
+         these questions are reused in future years.</p>
+    </header>
+    ${state.items.map((item, i) => `
+      <section class="pr-item">
+        <h2 class="pr-q">Question ${i + 1} of ${state.items.length}</h2>
+        ${itemReviewHTML(item, r.byItem[item.item_id], state.answerFor(item.item_id))}
+        <p class="pr-foot">Prepared for ${who} — personal study copy, not for distribution.</p>
+      </section>`).join('')}`;
+
+  document.body.classList.add('print-full');
+  reviewSaved = true;
+  window.print();
+}
+
+window.addEventListener('afterprint', () => {
+  if (!document.body.classList.contains('print-full')) return;
+  document.body.classList.remove('print-full');
+  $('print-review').innerHTML = '';
+});
+
+/* Once this page closes the review is gone — there is no log-in to come back
+ * to. Warn until the fellow has at least opened the save dialog. As with the
+ * exam's own beforeunload, Chrome only honours this after a real user
+ * gesture, so it cannot be verified by script. */
+function resultsBeforeUnload(e) {
+  if (reviewSaved) return;
+  e.preventDefault();
+  e.returnValue = '';
 }
 
 function revPrev() { if (reviewPos > 0) openReview(reviewPos - 1); }
@@ -266,6 +341,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const c = e.target.closest('[data-rpos]');
     if (c) openReview(parseInt(c.dataset.rpos, 10));
   });
+  $('save-review-btn').addEventListener('click', saveFullReview);
+  $('review-ref-btn').addEventListener('click', () => refWindow.open());
   $('results-nav-btn').addEventListener('click', () =>
     navigator_.open({ mode: 'review', onPick: openReview }));
 });

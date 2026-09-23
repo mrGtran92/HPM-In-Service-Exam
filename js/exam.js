@@ -15,7 +15,9 @@ let clockTimer = null;
 
 window.addEventListener('DOMContentLoaded', () => {
   navigator_.wire();
+  highlighter.wire();
   wireKeyboard();
+  textSize.apply();
 
   if (window.innerWidth < CONFIG.MIN_COMFORTABLE_WIDTH) show('small-screen-warning');
   if (api.isMock()) show('mock-banner');
@@ -162,7 +164,7 @@ function renderHeader() {
   $('progress-wrap').setAttribute('aria-valuemax', total);
 }
 
-function renderQuestion() {
+function renderQuestion(opts = {}) {
   const item = state.item();
   const chosen = state.answerFor(item.item_id);
   const flagged = state.isFlagged(item.item_id);
@@ -170,13 +172,27 @@ function renderQuestion() {
   renderHeader();
   renderClock();
 
+  const highlights = state.highlightsFor(item.item_id);
+
+  // The strike button sits beside the radio, not inside it: a button nested
+  // in a role="radio" is announced ambiguously by screen readers.
   const choices = item.choices.map(c => {
     const sel = c.id === chosen;
-    return `<div role="radio" tabindex="${sel || (!chosen && c.id === item.choices[0].id) ? 0 : -1}"
-                 aria-checked="${sel}" data-choice="${c.id}"
-                 class="choice${sel ? ' selected' : ''}">
-              <span class="choice-letter" aria-hidden="true">${choiceLetter(c.id)}</span>
-              <span class="choice-text">${esc(c.text)}</span>
+    const struck = state.isStruck(item.item_id, c.id);
+    const L = choiceLetter(c.id);
+    return `<div class="choice-row">
+              <div role="radio" tabindex="${sel || (!chosen && c.id === item.choices[0].id) ? 0 : -1}"
+                   aria-checked="${sel}" data-choice="${c.id}"
+                   class="choice${sel ? ' selected' : ''}${struck ? ' struck' : ''}">
+                <span class="choice-letter" aria-hidden="true">${L}</span>
+                <span class="choice-text">${esc(c.text)}${struck ? '<span class="sr-only"> (struck out)</span>' : ''}</span>
+              </div>
+              <button class="strike-btn${struck ? ' on' : ''}" data-strike="${c.id}"
+                      aria-pressed="${struck}" ${sel ? 'disabled' : ''}
+                      aria-label="${struck ? 'Restore' : 'Strike out'} choice ${L}"
+                      title="${sel ? 'This is your answer' : (struck ? 'Restore' : 'Strike out') + ' choice ' + L + ' (Shift+' + L + ')'}">
+                <span aria-hidden="true">✕</span>
+              </button>
             </div>`;
   }).join('');
 
@@ -188,6 +204,7 @@ function renderQuestion() {
              domain stays on the item in the Sheet, so faculty analytics and
              the fellow's own post-submission breakdown are unaffected. -->
         <span class="q-counter">Question ${state.current + 1} of ${state.items.length}</span>
+        ${highlights.length ? '<button class="link-btn" id="hl-clear">Clear highlights</button>' : ''}
         <button class="flag-btn${flagged ? ' on' : ''}" id="flag-btn"
                 aria-pressed="${flagged}" title="Flag for review (F)">
           <span aria-hidden="true">${flagged ? '⚑' : '⚐'}</span>
@@ -195,7 +212,7 @@ function renderQuestion() {
         </button>
       </div>
       <h2 class="q-heading" id="q-heading" tabindex="-1">Question ${state.current + 1}</h2>
-      <div class="q-stem">${esc(item.stem)}</div>
+      <div class="q-stem">${highlighter.stemHTML(item.stem, highlights)}</div>
       <div class="choices" role="radiogroup" aria-labelledby="q-heading" id="choices">${choices}</div>
     </article>`;
 
@@ -205,15 +222,30 @@ function renderQuestion() {
   $('btn-finish').classList.toggle('hidden', !last);
 
   $('flag-btn').onclick = () => toggleFlagCurrent();
+  if ($('hl-clear')) $('hl-clear').onclick = () => { state.clearHighlights(item.item_id); renderQuestion({ stay: true }); };
   $('choices').addEventListener('click', e => {
+    const s = e.target.closest('[data-strike]');
+    if (s) { toggleStrike(s.dataset.strike); return; }
     const el = e.target.closest('[data-choice]');
     if (el) selectChoice(el.dataset.choice);
   });
+  // Right-click strikes out, as in board-exam software.
+  $('choices').addEventListener('contextmenu', e => {
+    const el = e.target.closest('[data-choice]');
+    if (!el || el.dataset.choice === chosen) return;
+    e.preventDefault();
+    toggleStrike(el.dataset.choice);
+  });
+  highlighter.hide();
 
   // Long stems make this necessary: without it a fellow lands mid-stem on
-  // every navigation.
-  window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
-  $('q-heading').focus({ preventScroll: true });
+  // every navigation. `stay` is for changes to the SAME question (answer,
+  // strike, highlight, flag) — jumping to the top then would pull the fellow
+  // away from the choice they just clicked.
+  if (!opts.stay) {
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+    $('q-heading').focus({ preventScroll: true });
+  }
   navigator_.refresh();
 }
 
@@ -221,12 +253,25 @@ function renderQuestion() {
 
 function selectChoice(choiceId) {
   state.setAnswer(state.item().item_id, choiceId);
-  renderQuestion();
+  renderQuestion({ stay: true });
+  const el = document.querySelector(`[data-choice="${choiceId}"]`);
+  if (el) el.focus({ preventScroll: true });
+}
+
+function toggleStrike(choiceId) {
+  const id = state.item().item_id;
+  if (state.answerFor(id) === choiceId) return;
+  state.toggleStrike(id, choiceId);
+  const struck = state.isStruck(id, choiceId);
+  renderQuestion({ stay: true });
+  const btn = document.querySelector(`[data-strike="${choiceId}"]`);
+  if (btn) btn.focus({ preventScroll: true });
+  announce(`Choice ${choiceLetter(choiceId)} ${struck ? 'struck out' : 'restored'}`);
 }
 
 function toggleFlagCurrent() {
   state.toggleFlag(state.item().item_id);
-  renderQuestion();
+  renderQuestion({ stay: true });
   announce(state.isFlagged(state.item().item_id) ? 'Flagged' : 'Flag removed');
 }
 
@@ -245,6 +290,8 @@ function wireKeyboard() {
     if (!document.body.classList.contains('in-exam')) return;
     if (state.submitted) return;
     if (focusTrap.isActive()) return;                 // overlay owns the keys
+    // Typing in the lab search or the calculator must never answer or flag.
+    if (refWindow.owns(e.target)) return;
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -253,13 +300,42 @@ function wireKeyboard() {
     if (!item) return;
 
     if (/^[a-e]$/.test(k) && item.choices.some(c => c.id === k)) {
-      e.preventDefault(); selectChoice(k);
-    } else if (e.key === 'ArrowRight') { e.preventDefault(); nextQ(); }
+      e.preventDefault();
+      if (e.shiftKey) toggleStrike(k); else selectChoice(k);
+    } else if (k === 'l') { e.preventDefault(); refWindow.open(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); nextQ(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); prevQ(); }
     else if (k === 'f') { e.preventDefault(); toggleFlagCurrent(); }
     else if (k === 'r') { e.preventDefault(); openNavigator(); }
   });
 }
+
+/* ------------------------------------------------------------ text size -- */
+
+/* Three steps of question text size. Bigger type, not a wider column, is the
+ * fix for density — see CLAUDE.md. A per-browser preference, not part of the
+ * attempt. */
+const textSize = (() => {
+  const KEY = 'hpm_text_size';
+  const STEPS = ['', 'text-lg', 'text-xl'];
+  let step = 0;
+  try { step = Math.max(0, Math.min(STEPS.length - 1, parseInt(localStorage.getItem(KEY), 10) || 0)); } catch (e) { /* default */ }
+
+  function apply() {
+    STEPS.forEach(c => c && document.body.classList.remove(c));
+    if (STEPS[step]) document.body.classList.add(STEPS[step]);
+    const down = $('txt-down'), up = $('txt-up');
+    if (down) down.disabled = step === 0;
+    if (up) up.disabled = step === STEPS.length - 1;
+  }
+  function change(delta) {
+    step = Math.max(0, Math.min(STEPS.length - 1, step + delta));
+    try { localStorage.setItem(KEY, step); } catch (e) { /* fine */ }
+    apply();
+    announce(['Normal', 'Large', 'Largest'][step] + ' text');
+  }
+  return { apply, change };
+})();
 
 /* ---------------------------------------------------------------- finish -- */
 

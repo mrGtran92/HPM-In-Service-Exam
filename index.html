@@ -11,8 +11,8 @@
      and JS aggressively; without it a reload can silently run an old
      stylesheet against new markup, which is exactly what happened while
      building the sticky footer. Bump this date-stamp on EVERY css/ or js/
-     change — all eight references below must match. -->
-<link rel="stylesheet" href="css/exam.css?v=20260921a">
+     change — every css/ and js/ reference below must match. -->
+<link rel="stylesheet" href="css/exam.css?v=20260923d">
 </head>
 <body>
 
@@ -26,7 +26,6 @@
 <!-- ══ START ══════════════════════════════════════════════════════════ -->
 <div id="start-screen" class="container">
   <h1>HPM Fellow In-Service Exam</h1>
-  <p class="subtitle">Board-level difficulty · Single best answer</p>
 
   <div id="resume-banner" class="notice hidden">
     <p id="resume-text"></p>
@@ -61,12 +60,16 @@
         <li>Single attempt. Once submitted, answers cannot be changed.</li>
         <li>Move freely between questions and change answers any time before submitting.</li>
         <li>No feedback during the exam — answers and rationales appear after you submit.</li>
+        <li><strong>Reference</strong> (top right) opens lab reference ranges, the
+            equianalgesic table and a calculator in a window you can move and resize.</li>
+        <li>Cross out choices you have ruled out, and select words in a question to highlight them.</li>
         <li><strong>Your answers save automatically.</strong> If your browser closes or your
             computer restarts, reopen this page and you can pick up where you left off.</li>
       </ul>
       <p class="kbd-help"><strong>Keyboard:</strong>
         <kbd>A</kbd>–<kbd>E</kbd> choose · <kbd>←</kbd><kbd>→</kbd> move ·
-        <kbd>F</kbd> flag · <kbd>R</kbd> all questions</p>
+        <kbd>F</kbd> flag · <kbd>R</kbd> all questions ·
+        <kbd>Shift</kbd>+<kbd>A</kbd>–<kbd>E</kbd> cross out · <kbd>L</kbd> reference</p>
     </div>
 
     <div class="field-error" id="start-error" role="alert"></div>
@@ -85,6 +88,14 @@
       <div class="hdr-right">
         <span id="hdr-save" class="hdr-save"></span>
         <span id="hdr-clock" class="hdr-clock" title="Time elapsed"></span>
+        <span class="txt-size" role="group" aria-label="Question text size">
+          <button class="btn small" id="txt-down" onclick="textSize.change(-1)" aria-label="Smaller text" title="Smaller text">A−</button>
+          <button class="btn small" id="txt-up" onclick="textSize.change(1)" aria-label="Larger text" title="Larger text">A+</button>
+        </span>
+        <button class="btn small" onclick="refWindow.toggle()"
+                title="Lab values, equianalgesic table and calculator (L)">
+          <span aria-hidden="true">⚗</span> Reference
+        </button>
         <button class="btn small" onclick="openNavigator()" title="All questions (R)">
           <span aria-hidden="true">▦</span> All questions
         </button>
@@ -144,7 +155,10 @@
     <section id="review-panel" class="card review-panel hidden no-print">
       <div class="review-top">
         <span class="review-counter" id="review-counter"></span>
-        <button class="btn small" onclick="closeReview()">Close</button>
+        <span class="review-top-actions">
+          <button class="btn small" id="review-ref-btn"><span aria-hidden="true">⚗</span> Reference</button>
+          <button class="btn small" onclick="closeReview()">Close</button>
+        </span>
       </div>
       <div id="review-body"></div>
       <div class="nav-row">
@@ -155,12 +169,16 @@
     </section>
 
     <div class="nav-row no-print">
-      <button class="btn primary" onclick="window.print()">Print score report</button>
+      <button class="btn primary" id="save-review-btn">Save full review (PDF)</button>
+      <button class="btn" onclick="window.print()">Print score report</button>
     </div>
-    <p class="hint no-print">The printed report contains your score and domain
-       breakdown only — not the questions.</p>
+    <p class="hint no-print"><strong>Save your full review before you close this page</strong> —
+       it cannot be reopened later. The score report is a one-page summary without the questions.</p>
   </div>
 </div>
+
+<!-- Filled only while printing the full review; see printFullReview(). -->
+<div id="print-review" class="print-review" aria-hidden="true"></div>
 
 <!-- ══ NAVIGATOR OVERLAY ══════════════════════════════════════════════ -->
 <div id="nav-overlay" class="overlay hidden">
@@ -180,6 +198,36 @@
   </div>
 </div>
 
+<!-- ══ REFERENCE WINDOW ═════════════════════════════════════════════
+     Non-modal on purpose: the question stays readable and clickable. -->
+<div id="ref-window" class="ref-window hidden" role="dialog" aria-modal="false" aria-labelledby="ref-title">
+  <div class="ref-titlebar" id="ref-titlebar">
+    <h2 id="ref-title">Reference</h2>
+    <button class="icon-btn" id="ref-close" aria-label="Close reference window" title="Close (Esc)">✕</button>
+  </div>
+  <div class="ref-tabs" id="ref-tabs" role="tablist" aria-label="Reference material">
+    <button role="tab" id="ref-tab-labs" data-tab="labs" aria-controls="ref-panel-labs" aria-selected="false">Lab values</button>
+    <button role="tab" id="ref-tab-equi" data-tab="equi" aria-controls="ref-panel-equi" aria-selected="false">Equianalgesic</button>
+    <button role="tab" id="ref-tab-calc" data-tab="calc" aria-controls="ref-panel-calc" aria-selected="false">Calculator</button>
+  </div>
+  <div class="ref-body">
+    <div role="tabpanel" id="ref-panel-labs" aria-labelledby="ref-tab-labs" class="hidden">
+      <div class="ref-search">
+        <input type="search" id="ref-lab-search" class="text-input" placeholder="Search tests (e.g. sodium, PaCO2, BNP)"
+               aria-label="Search lab tests" autocomplete="off" spellcheck="false">
+        <span class="ref-count" id="ref-lab-count" aria-live="polite"></span>
+      </div>
+      <table class="ref-table ref-labs" id="ref-lab-table"></table>
+      <p class="ref-source" id="ref-lab-source"></p>
+    </div>
+    <div role="tabpanel" id="ref-panel-equi" aria-labelledby="ref-tab-equi" class="hidden"></div>
+    <div role="tabpanel" id="ref-panel-calc" aria-labelledby="ref-tab-calc" class="hidden"></div>
+  </div>
+</div>
+
+<!-- Floating "Highlight" / "Remove highlight" button; see js/highlight.js -->
+<div id="hl-pop" class="hl-pop hidden"><button class="btn small primary" id="hl-pop-btn">Highlight</button></div>
+
 <!-- ══ MODAL ══════════════════════════════════════════════════════════ -->
 <div id="modal-overlay" class="overlay hidden">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -189,12 +237,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=20260921a"></script>
-<script src="js/api.js?v=20260921a"></script>
-<script src="js/ui.js?v=20260921a"></script>
-<script src="js/state.js?v=20260921a"></script>
-<script src="js/navigator.js?v=20260921a"></script>
-<script src="js/exam.js?v=20260921a"></script>
-<script src="js/review.js?v=20260921a"></script>
+<script src="js/config.js?v=20260923d"></script>
+<script src="js/reference-data.js?v=20260923d"></script>
+<script src="js/api.js?v=20260923d"></script>
+<script src="js/ui.js?v=20260923d"></script>
+<script src="js/state.js?v=20260923d"></script>
+<script src="js/navigator.js?v=20260923d"></script>
+<script src="js/highlight.js?v=20260923d"></script>
+<script src="js/refwindow.js?v=20260923d"></script>
+<script src="js/exam.js?v=20260923d"></script>
+<script src="js/review.js?v=20260923d"></script>
 </body>
 </html>

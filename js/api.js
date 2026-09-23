@@ -84,7 +84,7 @@ const api = (() => {
     throw new Error(
       'Could not load the practice questions. Run this from a local server '
       + '(python3 -m http.server 8777, then open http://localhost:8777), or '
-      + 'regenerate the preview files with: python3 tools/make_mock_form.py tools/out/items_draft.csv'
+      + 'regenerate the preview files with: python3 tools/make_mock_form.py content/items.csv'
     );
   }
 
