@@ -1,7 +1,7 @@
 # HPM Fellow In-Service Exam
 
 Board-style in-service examination for Hospice & Palliative Medicine fellows.
-55 questions, five options each, single best answer.
+54 questions, five options each, single best answer.
 
 > ### Status: rebuilt front end complete — backend not yet built
 >
@@ -33,14 +33,14 @@ resume.
 | Phase | Delivers | State |
 |---|---|---|
 | **0** | Repo, split into separate files, version control | Done |
-| **1** | Word document → spreadsheet converter, content validator | Done, re-runnable |
+| **1** | Word document → spreadsheet converter, content validator | Done (converter now retired) |
 | **3** | 55-item interface, autosave, reliable submission | Done |
 | **2** | Google Sheet + Apps Script: hidden answer key, one attempt per fellow | **Next** |
 | **4** | Item analysis — which questions were too easy, too hard, or not discriminating | Later |
 
 ### Phase 3 in brief
 
-- **Question navigator** — an overlay listing all 55 with answered / unanswered /
+- **Question navigator** — an overlay listing all 54 with answered / unanswered /
   flagged status and filters, replacing the row of dots that doesn't scale
 - **Autosave and resume** — answers survive a closed tab, a crash, or a dead laptop
 - **Honest submission** — reads the server's reply, retries, and offers a downloadable
@@ -48,23 +48,35 @@ resume.
 - **Keyboard control** — A–E to answer, arrows to move, F to flag, R for the navigator
 - **Accessibility** — proper radio groups, no status conveyed by color alone,
   WCAG AA contrast
-- **Print** — score and domain breakdown only, never the questions
+- **Reference window** — ABIM lab reference ranges (searchable), the program's
+  equianalgesic table, and a calculator, in a window fellows can move, resize and close
+  (`js/reference-data.js`, `js/refwindow.js`)
+- **Exam tools** — cross out choices (✕ button, right-click, or Shift+A–E), highlight
+  words in a stem, and A−/A+ text size. All saved with progress, none sent for grading
+- **Full-review PDF** — at the end, fellows save every question with their answer, the
+  key and the rationales via the browser's Save as PDF. A one-page score report is
+  still available separately
 
 ## Content
 
-The question bank converts from the source Word document with:
+The question bank lives in **`content/items.csv`** — one row per question. That
+spreadsheet is the master copy; the Word document is no longer used. After editing it:
 
 ```bash
-python3 tools/parse_docx.py "/path/to/Exam Edits.docx" -o tools/out/items_draft.csv
-python3 tools/validate_items.py tools/out/items_draft.csv
-python3 tools/make_mock_form.py tools/out/items_draft.csv   # refresh the local preview
+python3 tools/validate_items.py content/items.csv
+python3 tools/make_mock_form.py content/items.csv   # refresh the local preview
 ```
 
-All 60 source questions convert cleanly. Five are marked `retired` from the editorial
-comments, leaving **55 live items** across seven reporting domains.
+`content/` is deliberately kept out of GitHub (it holds the answer key), so **keep a
+backup copy elsewhere**. Edit it in Numbers or Google Sheets; if you use Excel, save as
+**CSV UTF-8**, or symbols such as ≤ and × will be corrupted.
 
-**Before any live administration:** Q13 and Q39 have answer-key corrections still
-pending from faculty review.
+The September 2026 revision converts cleanly to **54 live items** across seven
+reporting domains.
+
+**Lab reference ranges** are transcribed from ABIM's January 2026 PDF into
+`js/reference-data.js`. ABIM revises it every January — redo it from the new PDF
+before each administration.
 
 ## Layout
 
@@ -75,6 +87,8 @@ pending from faculty review.
 | `js/api.js` | The only connection to the backend — the swap point |
 | `js/state.js` | Answers, flags, autosave |
 | `js/navigator.js` | Question-navigator overlay |
+| `js/refwindow.js` / `js/reference-data.js` | Reference window / lab and equianalgesic data |
+| `js/highlight.js` | Stem highlighter |
 | `js/exam.js` / `js/review.js` | Exam screen / results and review |
 | `tools/` | Content conversion and validation |
 | `dev/` | Local practice data. Gitignored — contains answer keys |

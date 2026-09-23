@@ -31,11 +31,16 @@ machinery — it was considered and deliberately rejected as redundant.
 
 ## Current status
 
+**The exam is in under two weeks (before ~Oct 7, 2026).** Prioritise what the
+administration needs over nice-to-haves.
+
+
 | Phase | State |
 |---|---|
 | 0 — repo, file split, pipeline | **Done.** Commit `e75485d` |
-| 1 — Word → CSV converter + validator | **Done, re-runnable.** Commit `59bb20f` |
+| 1 — Word → CSV converter + validator | **Done; converter retired Sep 23 2026.** Commit `59bb20f` |
 | 3 — 55-item UI, autosave, submission | **Done.** Commits `2ccef8e`, `17ee445`, `824bee8`, `c35ea15` |
+| 3b — 54-item revision, reference window, exam tools, full-review PDF | **Done** (Sep 23 2026) |
 | 2 — Apps Script backend | **Not started.** Needs George's Google account |
 | 4 — item analysis | Not started |
 
@@ -62,8 +67,10 @@ The full plan, including the threat model, lives at
 | Devices | Laptop expected; warn below 820px | Warning, never a hard block |
 | Autosave | Local + throttled server backup | Local authoritative; server only consulted when local is absent |
 | Resume | Any machine before submit; George may unlock after | Every unlock writes an `AuditLog` row |
-| Printing | Score and domains only, never questions | Keeps the item bank off paper |
-| Domain labels | Hidden during the exam, shown after | Seeing "Ethics & law" before the stem cues the answer — a validity issue, not cosmetic |
+| Printing / later review | One-page score report, **plus** a full-review PDF (questions, answer, key, rationales) the fellow saves at submit | George, Sep 2026: fellows need to study asynchronously. He chose this over a login-based review knowing the bank leaves as forwardable files. There is no way back in after the results page closes |
+| Reference material | Floating, non-modal window: ABIM lab ranges, equianalgesic table, calculator | Mirrors board-exam software. Non-modal so the stem stays readable. Below 820px it is a bottom sheet |
+| Exam tools | Strike-out, stem highlighter, 3-step text size | Board-exam parity. Scratch marks are saved with progress but never graded |
+| Domain labels | Hidden during the exam; after submit only in the score breakdown, not on each reviewed question | Seeing "Ethics & law" before the stem cues the answer — a validity issue, not cosmetic |
 | Content column width | Do NOT widen | Measured: line length is already at the top of the comfortable range. The empty margins are doing useful work; bigger type is the fix for density |
 | Google Sheet | Fresh one; old kept as archive | New structure shares almost nothing with the pilot sheet |
 
@@ -103,9 +110,15 @@ the data already lives in Sheets and George maintains this alone.
 | `js/api.js` | Backend adapter — the swap point |
 | `js/state.js` | Answers, flags, two-layer autosave. All writes go through setters |
 | `js/navigator.js` | The question-navigator overlay |
+| `js/refwindow.js` | Reference window: labs, equianalgesic, calculator. Non-modal |
+| `js/reference-data.js` | Lab ranges + equianalgesic table (not key material) |
+| `js/highlight.js` | Stem highlighter (offsets, never stored HTML) |
 | `js/exam.js` | Start gate, question rendering, keyboard |
 | `js/review.js` | Submission, results, rationale review |
-| `tools/parse_docx.py` | One-time Word → CSV. Not part of the running exam |
+| `content/items.csv` | **THE MASTER item bank.** Gitignored (answer keys; repo is public). Edit here, never in Word |
+| `content/roster.csv` | 8 fellows (email, name, role). Gitignored. Seeds the Sheet's Roster tab |
+| `content/history/` | Record of the text corrections baked in at retirement |
+| `tools/parse_docx.py` | **Retired** Word → CSV migration. Refuses to overwrite `content/items.csv` |
 | `tools/validate_items.py` | Content gate. Errors block publication |
 | `tools/make_mock_form.py` | Generates the gitignored `dev/` fixtures |
 | `dev/` | **Gitignored.** Contains answer keys. Never commit, never deploy |
@@ -125,14 +138,22 @@ Check whether a server is already running before starting one:
 ## Gotchas that have already cost time
 
 - **Asset caching.** `index.html` references css/js with `?v=<datestamp>`. **Bump it on
-  every css/ or js/ change — all eight references.** A stale stylesheet once made a
+  every css/ or js/ change — all eleven references.** A stale stylesheet once made a
   correct fix look like it had done nothing, and two measurement rounds were wasted
   before checking whether the CSS had actually loaded.
 - **Screenshots in `browser_batch` lag the DOM.** A screenshot batched after an action
   can show the previous state. Twice this looked like a bug and wasn't. Read the DOM
   with `javascript_tool` to verify; take screenshots as their own call.
 - **Regenerate fixtures after content changes**, or the preview shows old questions:
-  `python3 tools/make_mock_form.py tools/out/items_draft.csv`
+  `python3 tools/validate_items.py content/items.csv && python3 tools/make_mock_form.py content/items.csv`
+- **`content/items.csv` has no backup by default.** It is not in git and this Mac's
+  Desktop is not synced to iCloud. Remind George to keep a copy elsewhere until the
+  bank moves into the Google Sheet (Phase 2), which then becomes the master.
+- **Excel's plain "CSV" format is not UTF-8** and mangles ≤, ×, μ and dashes. Save as
+  "CSV UTF-8", or edit in Numbers/Google Sheets. The validator rejects a non-UTF-8 file.
+- **The in-app preview cannot read `~/Desktop`** (macOS privacy block — the server
+  starts but returns errors). To preview from Claude, copy `index.html css js dev` to
+  the scratchpad and serve from there. George's own Terminal is unaffected.
 - **`beforeunload` cannot be verified by script.** Chrome suppresses it without a real
   user gesture. Untested, not broken.
 - Something auto-commits single files with GitHub-web-style messages
@@ -141,13 +162,18 @@ Check whether a server is already running before starting one:
 ## Open items
 
 **Content, owned by faculty:**
-- **Q13 and Q39 have pending answer-key corrections** from George's review with Michael
-  Spiker. These must be settled before any live administration — an exam scored against
-  a wrong key is the one failure that looks like success.
-- 5 items are `retired`, leaving **55**. **Communication is down to 3 items**, below the
-  threshold where a domain score means anything. Worth weighting replacements toward it.
-- `reference` is empty on every item by design — the source document's citation markers
-  were unrecoverable (129 of 146 ambiguous). Faculty fill these in.
+- **`content/items.csv` is the master (George's decision, Sep 23 2026).** The Word
+  file is retired as a source. 54 items. The two pending key corrections are settled
+  and confirmed by George. The Sep 23 typo fixes and content decisions are baked in;
+  the list is in `content/history/` (gitignored).
+- **Never write answer keys, rationale content or correct choices into this file or
+  any committed file.** The repo is public. Refer to items by number only.
+- **Communication stays at 3 items** (George, Sep 23 2026). The results screen already
+  marks it n=3. Do not keep raising it.
+- **All 9 `needs_review` items were cleared to `ready`** by George, Sep 23 2026.
+- **References are not needed** for this administration. Leave `reference` empty.
+- **Lab ranges** (`js/reference-data.js`) come from ABIM's January 2026 PDF. Redo from
+  the new PDF each January.
 
 **Engineering:**
 - Phase 2 backend, then flip `CONFIG.BACKEND` to `'live'`.
