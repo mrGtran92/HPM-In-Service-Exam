@@ -5,8 +5,12 @@ Convert the HPM question-bank Word document into a flat CSV for import into the
 
     python3 tools/parse_docx.py "path/to/Exam Edits.docx" -o tools/out/items_draft.csv
 
-This is a ONE-TIME migration tool, not part of the running exam. Once the bank
-lives in the Sheet, the Sheet is the source of truth and this script is history.
+RETIRED (Sep 23 2026). The item bank master is now content/items.csv, edited
+directly as a spreadsheet; the Word document is no longer the source. Re-running
+this would rebuild the bank from Word and discard every edit made since, so it
+refuses to write over content/items.csv. Kept as a record of how the bank was
+migrated. The 54 text corrections applied at retirement are recorded in
+content/history/corrections-applied-2026-09-23.csv.
 
 Design notes
 ------------
@@ -18,6 +22,9 @@ Design notes
 * Editorial comments are carried into `review_notes`, and questions whose
   comments call for deletion or an answer-key change are pre-marked in
   `status`, so the Sheet arrives as a working QA list rather than raw content.
+* Choices are normally typed as "A. ...". Word's auto-lettered lists render
+  the letter but store only the text, so those are recognised structurally
+  instead (see adopt_list_choices).
 * `domain` keeps the author's fine-grained label; `report_domain` is the
   coarser bucket used for score breakdowns, so thin domains don't produce
   meaningless 0%/100% scores. See DOMAIN_BUCKETS.
@@ -68,12 +75,18 @@ def para_text(p, drop_superscript=True):
     """Plain text of a paragraph, optionally dropping superscript runs."""
     out = []
     for r in p.iter(W + 'r'):
+        text = ''.join(n.text or '' for n in r.iter(W + 't'))
         rpr = r.find(W + 'rPr')
         if drop_superscript and rpr is not None:
             v = rpr.find(W + 'vertAlign')
             if v is not None and v.get(W + 'val') == 'superscript':
+                # When a citation number is deleted by hand, the space after
+                # it often stays superscript. Keep it, or two sentences fuse
+                # ("metabolites.Fentanyl").
+                if text and not text.strip():
+                    out.append(' ')
                 continue
-        out.append(''.join(n.text or '' for n in r.iter(W + 't')))
+        out.append(text)
     return ''.join(out)
 
 
@@ -113,6 +126,7 @@ def parse(path):
 
     def flush():
         if cur and cur.get('item_id'):
+            adopt_list_choices(cur)
             items.append(cur)
 
     for el in body.iter():
@@ -176,9 +190,28 @@ def parse(path):
             cur['rationale_parts'].append(raw)
         elif cur['section'] is None:
             cur['stem_parts'].append(raw)
+            if el.find(W + 'pPr/' + W + 'numPr') is not None:
+                cur['list_tail'] = cur.get('list_tail', 0) + 1
+            else:
+                cur['list_tail'] = 0
 
     flush()
     return items, per_q_comments
+
+
+def adopt_list_choices(it):
+    """Choices typed as a Word auto-lettered list carry no "A." in their text,
+    so they land in the stem. If a question has no typed choices and its stem
+    ends in exactly five list paragraphs, those are the choices. Anything else
+    is left alone and reported as missing choices by build_rows()."""
+    if any(it.get('choice_' + c) for c in CHOICES):
+        return
+    if it.get('list_tail') != len(CHOICES):
+        return
+    tail = it['stem_parts'][-len(CHOICES):]
+    del it['stem_parts'][-len(CHOICES):]
+    for c, text in zip(CHOICES, tail):
+        it['choice_' + c] = text.strip()
 
 
 def build_rows(items, per_q_comments):
@@ -249,6 +282,11 @@ def main():
     ap.add_argument('docx')
     ap.add_argument('-o', '--out', default='tools/out/items_draft.csv')
     args = ap.parse_args()
+
+    master = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'content', 'items.csv'))
+    if os.path.abspath(args.out) == master:
+        sys.exit('Refusing to overwrite content/items.csv — it is the master item bank, '
+                 'and rebuilding it from Word would discard every edit made since.')
 
     items, per_q = parse(args.docx)
     rows, problems = build_rows(items, per_q)

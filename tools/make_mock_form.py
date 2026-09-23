@@ -2,7 +2,7 @@
 """
 Build a local development fixture from the item CSV.
 
-    python3 tools/make_mock_form.py tools/out/items_draft.csv
+    python3 tools/make_mock_form.py content/items.csv
 
 Writes TWO files into dev/ (gitignored — never committed, never deployed):
 
@@ -32,7 +32,7 @@ def main():
     ap.add_argument('--version', default='dev-local')
     args = ap.parse_args()
 
-    with open(args.csv_path, newline='', encoding='utf-8') as fh:
+    with open(args.csv_path, newline='', encoding='utf-8-sig') as fh:
         rows = [r for r in csv.DictReader(fh)
                 if (r.get('status') or '').strip() != 'retired']
 

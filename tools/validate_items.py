@@ -2,8 +2,8 @@
 """
 Validate an item bank CSV before it is published as an exam form.
 
-    python3 tools/validate_items.py tools/out/items_draft.csv
-    python3 tools/validate_items.py items.csv --strict   # warnings also fail
+    python3 tools/validate_items.py content/items.csv
+    python3 tools/validate_items.py content/items.csv --strict   # warnings also fail
 
 Run this on every content change. Exit code 1 means do not publish.
 
@@ -48,8 +48,14 @@ def main():
                     help='treat warnings as failures')
     args = ap.parse_args()
 
-    with open(args.csv_path, newline='', encoding='utf-8') as fh:
-        rows = list(csv.DictReader(fh))
+    try:
+        with open(args.csv_path, newline='', encoding='utf-8-sig') as fh:
+            rows = list(csv.DictReader(fh))
+    except UnicodeDecodeError:
+        # Excel's plain "CSV" format is not UTF-8 and mangles ≤, ×, μ, dashes.
+        sys.exit(f'{args.csv_path} is not saved as UTF-8. In Excel use '
+                 'File > Save As > "CSV UTF-8 (Comma delimited)"; Numbers and '
+                 'Google Sheets export UTF-8 automatically.')
 
     errors, warnings = [], []
     seen_ids = Counter()

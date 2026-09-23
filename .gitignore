@@ -9,3 +9,7 @@ tools/out/
 
 # Local dev fixtures — contain answer key material, never commit
 dev/
+
+# The item bank master (questions, answer keys, rationales). Never commit:
+# this repo is public. Back it up outside git.
+content/
