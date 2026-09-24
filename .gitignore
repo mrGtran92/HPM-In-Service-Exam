@@ -1,6 +1,18 @@
 .DS_Store
 .claude/settings.local.json
-
-# Answer-key material — never publish
-dev/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
 tools/out/
+.clasp.json
+
+# Local dev fixtures — contain answer key material, never commit
+dev/
+
+# The item bank master (questions, answer keys, rationales). Never commit:
+# this repo is public. Back it up outside git.
+content/
+
+# RStudio session history
+.Rhistory
