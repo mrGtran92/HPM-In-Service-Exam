@@ -44,12 +44,14 @@ administration needs over nice-to-haves.
 | 2 — Apps Script backend | **Built and tested against a fake Sheet** (`tests/gas-fake.js`). Next: deploy with George, set `SCRIPT_URL`, full rehearsal |
 | 4 — item analysis | Not started |
 
-Work happens on branch `rebuild`, which branches off `main`. **`main` still serves the
-original working pilot** at https://mrgtran92.github.io/HPM-In-Service-Exam/ and must
-stay that way until Phase 2 is done and tested. Switching is a deliberate later step.
+**`main` is the live exam** at https://mrgtran92.github.io/HPM-In-Service-Exam/
+(GitHub Pages, served as plain files via `.nojekyll`). The rebuilt exam replaced the
+pilot on Sep 23 2026 (George's decision); the pilot survives only in history.
 
-**Nothing has been pushed to GitHub yet** — no credentials on this machine. GitHub
-Desktop is the recommended route; George has only ever used the GitHub website.
+Branches: do work on `rebuild`; release by merging it into `main`. **Anything pushed
+to `main` is live to fellows within about a minute.** This machine has no GitHub
+credentials: George pushes with **GitHub Desktop** (Current Branch › Push origin).
+The live server is George's Apps Script deployment in `CONFIG.SCRIPT_URL`.
 
 The full plan, including the threat model, lives at
 `~/.claude/plans/i-have-been-working-deep-sutherland.md`.
