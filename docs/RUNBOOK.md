@@ -92,9 +92,10 @@ This is set in the **Google Sheet**, not in any file in this folder.
    zero in Sheets).
 
 If the Config tab or the `tester_code` row is missing, run **HPM Exam › Set up tabs**
-again. It only adds what is missing and never changes anything already there. Testers open the exam link with
-`#tester` on the end, e.g. `https://…/HPM-In-Service-Exam/#tester`, and type the
-code. Test runs:
+again. It only adds what is missing and never changes anything already there.
+
+Testers open the exam link with `#tester` on the end, e.g.
+`https://…/HPM-In-Service-Exam/#tester`, and type the code. Test runs:
 - can use any email address, as many times as they like;
 - work even while the exam is closed to fellows;
 - are marked `test` in Attempts and never counted.
