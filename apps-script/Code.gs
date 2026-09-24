@@ -386,6 +386,45 @@ function validateItems_(rows) {
   return { errors, live, skipped };
 }
 
+/**
+ * Exam order. Items is kept grouped by content area for editing; the exam is
+ * not. Publish shuffles once and freezes the result in the Form tab, so every
+ * fellow sees the same order and "Question 12" means the same question to all
+ * of them. No two neighbouring questions share a content area when the counts
+ * allow it (a pure shuffle of 54 would still put ~8 pairs side by side).
+ */
+function mixOrder_(rows) {
+  const pools = {};
+  rows.forEach(r => {
+    const d = String(r.report_domain).trim();
+    (pools[d] = pools[d] || []).push(r);
+  });
+  Object.keys(pools).forEach(d => {
+    const p = pools[d];
+    for (let i = p.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = p[i]; p[i] = p[j]; p[j] = t;
+    }
+  });
+  const out = [];
+  let prev = null;
+  for (let left = rows.length; left > 0; left--) {
+    const all = Object.keys(pools).filter(d => pools[d].length);
+    const ok = all.filter(d => d !== prev);
+    // An area holding more than half of what remains must go now, or it ends up bunched at the end.
+    const must = ok.find(d => 2 * pools[d].length > left);
+    let pick = must;
+    if (!pick && !ok.length) pick = prev;               // only one area left: unavoidable
+    if (!pick) {
+      let x = Math.random() * ok.reduce((s, d) => s + pools[d].length, 0);
+      pick = ok.find(d => (x -= pools[d].length) < 0) || ok[ok.length - 1];
+    }
+    out.push(pools[pick].pop());
+    prev = pick;
+  }
+  return out;
+}
+
 function nextVersion_() {
   const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
   const base = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
@@ -605,15 +644,17 @@ function buildResults_(attempts, preview) {
   // ---- 3. most-missed questions -------------------------------------------
   sh.getRange(row, 1).setValue('3. Questions, hardest first').setFontWeight('bold');
   row++;
-  const titles = {}, keys = {};
+  const titles = {}, keys = {}, shownAs = {};
   const version = (attempts[0] || {}).form_version;
   const formSheet = version && ss.getSheetByName(FORM_PREFIX + version);
   if (formSheet) {
-    tableFromValues_(formSheet.getDataRange().getValues()).rows.forEach(r => {
+    tableFromValues_(formSheet.getDataRange().getValues()).rows.forEach((r, i) => {
       titles[String(r.item_id)] = r.title;
       keys[String(r.item_id)] = String(r.correct_choice_id).toUpperCase();
+      shownAs[String(r.item_id)] = i + 1;             // the number fellows saw on screen
     });
   }
+  const qLabel = id => shownAs[id] ? 'Q' + shownAs[id] + '  (item ' + id + ')' : 'Item ' + id;
   const perItem = {};
   people.forEach(p => p.rows.forEach(r => {
     const id = String(r.item_id);
@@ -625,14 +666,14 @@ function buildResults_(attempts, preview) {
     else { const c = String(r.chosen).toUpperCase(); q.wrong[c] = (q.wrong[c] || 0) + 1; }
   }));
   const items = Object.keys(perItem).map(k => perItem[k])
-    .sort((x, y) => (x.right / x.n) - (y.right / y.n) || x.id - y.id);
-  const qHeader = ['Question', 'Topic', 'Content area', '% correct', 'Correct answer', 'Most common wrong answer', 'Chose it', 'Left blank'];
+    .sort((x, y) => (x.right / x.n) - (y.right / y.n) || (shownAs[x.id] || x.id) - (shownAs[y.id] || y.id));
+  const qHeader = ['Question (item #)', 'Topic', 'Content area', '% correct', 'Correct answer', 'Most common wrong answer', 'Chose it', 'Left blank'];
   sh.getRange(row, 1, 1, qHeader.length).setValues([qHeader]).setFontWeight('bold');
   row++;
   if (items.length) {
     sh.getRange(row, 1, items.length, qHeader.length).setValues(items.map(q => {
       const top = Object.keys(q.wrong).sort((a, b) => q.wrong[b] - q.wrong[a])[0];
-      return ['Q' + q.id, titles[String(q.id)] || '', q.domain, q.right / q.n, q.key,
+      return [qLabel(String(q.id)), titles[String(q.id)] || '', q.domain, q.right / q.n, q.key,
         top || '—', top ? q.wrong[top] + ' of ' + q.n : '', q.blank || ''];
     }));
     sh.getRange(row, 4, items.length, 1).setNumberFormat('0%').setHorizontalAlignment('center');
@@ -775,7 +816,7 @@ function menuPublish() {
   if (ui.alert('Publish exam version?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
   const sh = ss.insertSheet(FORM_PREFIX + version);
-  const values = [ITEM_FIELDS].concat(v.live.map(r => ITEM_FIELDS.map(f => r[f] === undefined ? '' : r[f])));
+  const values = [ITEM_FIELDS].concat(mixOrder_(v.live).map(r => ITEM_FIELDS.map(f => r[f] === undefined ? '' : r[f])));
   sh.getRange(1, 1, values.length, ITEM_FIELDS.length).setValues(values);
   sh.setFrozenRows(1);
   sh.protect().setDescription('Published exam version — do not edit').setWarningOnly(true);
