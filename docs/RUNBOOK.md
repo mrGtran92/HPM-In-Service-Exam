@@ -132,6 +132,24 @@ Turn it off with **HPM Exam › Turn tester access off** before exam day.
 Results are in **Attempts** (one row per fellow: score and each domain).
 **Responses** has every answer to every question, for re-scoring and item analysis.
 
+### Reviewing results with colleagues
+
+**HPM Exam › Build results dashboard** creates a **Results** tab:
+
+1. **Score grid** — each fellow's % correct in every content area, shaded
+   green (≥ 80%), amber (60–79%) or red (< 60%), with the class average.
+2. **One fellow vs the class** — pick a name in the yellow cell; the chart redraws.
+3. **Questions, hardest first** — class % correct, the correct answer, and the most
+   common wrong answer. If most of the class chose the same wrong answer, the
+   question or its key deserves a second look.
+
+It counts fellows' submitted attempts only (not test runs, not reset attempts).
+Click it again whenever new submissions arrive — it rebuilds the tab from scratch.
+Before the exam, it offers a clearly labelled preview built from test runs.
+
+To share: **Share** (top right) → add colleagues as **Viewer**. Viewers see every
+tab, including the answer key, but cannot change anything or use the menu.
+
 ---
 
 ## Part 4 — Troubleshooting

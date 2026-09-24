@@ -59,8 +59,10 @@ resume.
 
 ## Content
 
-The question bank lives in **`content/items.csv`** — one row per question. That
-spreadsheet is the master copy; the Word document is no longer used. After editing it:
+The question bank lives in the **Items tab of the exam's Google Sheet** — edit it
+there, then use **HPM Exam › Publish exam version**. `content/items.csv` (kept out of
+GitHub) is the snapshot it was imported from; the tools below still work on it for
+local practice:
 
 ```bash
 python3 tools/validate_items.py content/items.csv
