@@ -12,7 +12,7 @@
      stylesheet against new markup, which is exactly what happened while
      building the sticky footer. Bump this date-stamp on EVERY css/ or js/
      change — every css/ and js/ reference below must match. -->
-<link rel="stylesheet" href="css/exam.css?v=20260923d">
+<link rel="stylesheet" href="css/exam.css?v=20260923g">
 </head>
 <body>
 
@@ -54,6 +54,14 @@
     <div class="field-error" id="email-error" role="alert"></div>
     <div class="field-hint" id="email-hint">Must be your @mednet.ucla.edu address</div>
 
+    <!-- Shown only when the address ends in #tester. See TESTER_MODE in exam.js. -->
+    <div id="tester-field" class="hidden">
+      <label class="field-label" for="tester-code">Tester code</label>
+      <input class="text-input" type="password" id="tester-code" autocomplete="off"
+             placeholder="Code from George" spellcheck="false"/>
+      <div class="field-hint">Test runs can use any email and are never counted as a fellow's result.</div>
+    </div>
+
     <div class="briefing">
       <p><strong>Before you begin</strong></p>
       <ul>
@@ -84,6 +92,7 @@
       <div class="hdr-left">
         <span id="hdr-position" class="hdr-position"></span>
         <span id="hdr-stats" class="hdr-stats"></span>
+        <span id="hdr-test" class="hdr-test hidden">Test run — not counted</span>
       </div>
       <div class="hdr-right">
         <span id="hdr-save" class="hdr-save"></span>
@@ -237,15 +246,15 @@
   </div>
 </div>
 
-<script src="js/config.js?v=20260923d"></script>
-<script src="js/reference-data.js?v=20260923d"></script>
-<script src="js/api.js?v=20260923d"></script>
-<script src="js/ui.js?v=20260923d"></script>
-<script src="js/state.js?v=20260923d"></script>
-<script src="js/navigator.js?v=20260923d"></script>
-<script src="js/highlight.js?v=20260923d"></script>
-<script src="js/refwindow.js?v=20260923d"></script>
-<script src="js/exam.js?v=20260923d"></script>
-<script src="js/review.js?v=20260923d"></script>
+<script src="js/config.js?v=20260923g"></script>
+<script src="js/reference-data.js?v=20260923g"></script>
+<script src="js/api.js?v=20260923g"></script>
+<script src="js/ui.js?v=20260923g"></script>
+<script src="js/state.js?v=20260923g"></script>
+<script src="js/navigator.js?v=20260923g"></script>
+<script src="js/highlight.js?v=20260923g"></script>
+<script src="js/refwindow.js?v=20260923g"></script>
+<script src="js/exam.js?v=20260923g"></script>
+<script src="js/review.js?v=20260923g"></script>
 </body>
 </html>

@@ -39,15 +39,16 @@ def main():
     items, key = [], {}
     for r in rows:
         iid = int(r['item_id'])
+        # No title or domain in the served form: both can cue the answer.
+        # The domain travels with the key and reaches the page after submit.
         items.append({
             'item_id': iid,
-            'domain': r['report_domain'],
-            'title': r['title'],
             'stem': r['stem'],
             'choices': [{'id': c, 'text': r['choice_' + c]}
                         for c in CHOICES if r.get('choice_' + c)],
         })
         key[str(iid)] = {
+            'domain': r['report_domain'],
             'correct_choice_id': r['correct_choice_id'],
             'key_rationale': r['key_rationale'],
             'rationales': {c: r['rat_' + c] for c in CHOICES if r.get('rat_' + c)},
@@ -78,7 +79,8 @@ def main():
     # not a substring of the serialized blob — question prose legitimately
     # contains words like "reference", and matching on those is a false alarm.
     banned = {'correct_choice_id', 'key_rationale', 'rationales', 'reference',
-              'rat_a', 'rat_b', 'rat_c', 'rat_d', 'rat_e', 'is_correct', 'correct'}
+              'rat_a', 'rat_b', 'rat_c', 'rat_d', 'rat_e', 'is_correct', 'correct',
+              'title', 'domain'}
 
     def all_keys(node):
         if isinstance(node, dict):
@@ -95,8 +97,8 @@ def main():
         return 1
 
     domains = {}
-    for i in items:
-        domains[i['domain']] = domains.get(i['domain'], 0) + 1
+    for k in key.values():
+        domains[k['domain']] = domains.get(k['domain'], 0) + 1
     print(f'{len(items)} live items -> {form_path} ({os.path.getsize(form_path)//1024} KB)')
     print(f'{len(key)} keys       -> {key_path}')
     print(f'             -> {js_path} (for file:// preview)')

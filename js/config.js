@@ -1,18 +1,19 @@
 /* ---------------------------------------------------------------------------
  * CONFIGURATION
  *
- * BACKEND is switched here and nowhere else.
- *   'mock'   — reads dev/mock-form.json, grades in-browser. Local development
- *              only; dev/ is gitignored and never deployed.
- *   'live'   — talks to the Apps Script deployment in SCRIPT_URL.
+ * BACKEND is decided here and nowhere else:
+ *   'live'   — talks to the Apps Script web app in SCRIPT_URL. Used whenever
+ *              SCRIPT_URL is set.
+ *   'mock'   — reads dev/mock-data.js and grades in the browser. Used when
+ *              SCRIPT_URL is empty, or when the address ends in ?mock (local
+ *              practice). dev/ is gitignored and never deployed.
  * ------------------------------------------------------------------------- */
 
 const CONFIG = {
-  BACKEND: 'mock',
-
-  // Replace when the new Apps Script deployment exists. The previous URL has
-  // been public since June and is being retired (see plan, Phase 2 control 8).
-  SCRIPT_URL: '',
+  // The Apps Script web-app address ("Deploy > Manage deployments" in the
+  // editor). The pilot's old address has been public since June; this must be
+  // a NEW deployment of apps-script/Code.gs.
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw7_9qCrZZfyrpKO5DYiu4KBDeyZTK-p344fJE3q4CmZ_c6jC_SWCcaRudJjiMJBNKF/exec',
 
   ALLOWED_DOMAIN: 'mednet.ucla.edu',
 
@@ -25,6 +26,8 @@ const CONFIG = {
 
   STORAGE_KEY: 'hpm_exam_attempt',
 };
+
+CONFIG.BACKEND = (CONFIG.SCRIPT_URL && !/[?&]mock\b/.test(location.search)) ? 'live' : 'mock';
 
 /* Reporting domains, in the order they should appear.
  * Fixed list: the validator rejects anything not in it, so a stray trailing

@@ -21,6 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (window.innerWidth < CONFIG.MIN_COMFORTABLE_WIDTH) show('small-screen-warning');
   if (api.isMock()) show('mock-banner');
+  if (TESTER_MODE) { show('tester-field'); hide('email-hint'); }
 
   const saved = state.readLocal();
   if (saved && saved.email) offerResume(saved);
@@ -45,21 +46,30 @@ async function resumeAttempt(saved) {
   hide('resume-banner');
   setStartBusy(true, 'Restoring your exam…');
   try {
-    const r = await api.startAttempt({ name: saved.name, email: saved.email });
-    launch(r, { name: saved.name, email: saved.email }, saved);
+    const r = await api.startAttempt({ name: saved.name, email: saved.email, testerCode: saved.testerCode });
+    launch(r, { name: saved.name, email: saved.email, testerCode: saved.testerCode }, saved);
   } catch (err) {
     setStartBusy(false);
-    startError(err.message);
+    startError(messageFor(err));
   }
 }
+
+/* Testers reach a hidden code box through the exam link with #tester on the
+ * end. Nothing about it is visible to fellows. Tester runs may use any email
+ * address; the server checks the code and keeps these runs out of results. */
+const TESTER_MODE = location.hash.toLowerCase() === '#tester';
 
 function validateEmail() {
   const val = $('fellow-email').value.trim();
   const errEl = $('email-error');
   const input = $('fellow-email');
   if (!val) { errEl.textContent = ''; input.classList.remove('error'); return true; }
-  if (!val.toLowerCase().endsWith('@' + CONFIG.ALLOWED_DOMAIN)) {
-    errEl.textContent = 'Please use your @' + CONFIG.ALLOWED_DOMAIN + ' address.';
+  const bad = TESTER_MODE
+    ? !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)
+    : !val.toLowerCase().endsWith('@' + CONFIG.ALLOWED_DOMAIN);
+  if (bad) {
+    errEl.textContent = TESTER_MODE ? 'Please enter a valid email address.'
+                                    : 'Please use your @' + CONFIG.ALLOWED_DOMAIN + ' address.';
     input.classList.add('error');
     input.setAttribute('aria-invalid', 'true');
     return false;
@@ -92,29 +102,44 @@ async function startExam() {
   $('name-error').textContent = '';
   if (!validateEmail()) return;
   const email = $('fellow-email').value.trim();
+  const testerCode = TESTER_MODE ? $('tester-code').value.trim() : '';
+  if (TESTER_MODE && !testerCode) { startError('Enter the tester code.'); return; }
 
   $('start-error').classList.add('hidden');
   setStartBusy(true);
   try {
-    const r = await api.startAttempt({ name, email });
-    // A server-side copy is used only when this machine has nothing — i.e.
-    // the fellow has moved to a different laptop mid-exam.
-    launch(r, { name, email }, r.server_progress || null);
+    const r = await api.startAttempt({ name, email, testerCode });
+    launch(r, { name, email, testerCode }, state.readLocal());
   } catch (err) {
     setStartBusy(false);
-    startError(err.message);
+    startError(messageFor(err));
   }
 }
 
-function launch(r, who, restore) {
+/**
+ * Where a resumed attempt's answers come from:
+ *   - this computer's copy, if it belongs to the SAME attempt (freshest);
+ *   - otherwise the server's copy (the fellow has moved laptops);
+ *   - never a local copy of a different attempt — e.g. one the proctor reset
+ *     with "Allow a retake" — which must not leak old answers into a fresh start.
+ */
+function launch(r, who, localCopy) {
+  const sameAttempt = localCopy && localCopy.email === who.email &&
+    (api.isMock() || localCopy.attemptId === r.attempt_id);
+  const restore = sameAttempt ? localCopy : (r.server_progress || null);
+
   state.begin({
     attemptId: r.attempt_id,
     items: r.form.items,
     name: who.name,
     email: who.email,
+    kind: r.kind,
+    testerCode: who.testerCode,
     restore,
   });
   state.onSaveStateChange(renderSaveState);
+  state.persist();                     // record the attempt id locally at once
+  $('hdr-test').classList.toggle('hidden', state.kind !== 'test');
 
   hide('start-screen');
   show('exam-screen');

@@ -5,7 +5,7 @@
  * calls these four methods and knows nothing about transport, so swapping
  * Apps Script for something else never touches rendering code.
  *
- *   startAttempt({name, email})  -> {attempt_id, form, resumed?}
+ *   startAttempt({name, email, testerCode?}) -> {attempt_id, kind, form, server_progress}
  *   saveProgress(snapshot)       -> {ok}          (fire-and-forget, throttled)
  *   submitAttempt(payload)       -> {ok, score, domains, items}
  *
@@ -17,27 +17,44 @@
  * them "simple requests" so the browser skips the CORS preflight that Apps
  * Script handles poorly — and unlike the pilot's mode:'no-cors', the response
  * is actually readable, which is what makes real error handling possible.
+ *
+ * Errors: every failure is thrown as an Error with a `.code` — the server's
+ * code (NOT_ON_ROSTER, EXAM_CLOSED, …) or NETWORK when it could not be
+ * reached. exam.js turns codes into plain-language messages.
  * ------------------------------------------------------------------------- */
 
 const api = (() => {
 
   /* ---------------------------------------------------------------- live -- */
 
+  function apiError(code, message) {
+    const e = new Error(message);
+    e.code = code;
+    return e;
+  }
+
   async function post(action, body) {
-    if (!CONFIG.SCRIPT_URL) {
-      throw new Error('No SCRIPT_URL configured. Set CONFIG.BACKEND to "mock" for local development.');
+    let res;
+    try {
+      res = await fetch(CONFIG.SCRIPT_URL, {
+        method: 'POST',
+        // Deliberately text/plain — see transport note above.
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action, ...body }),
+      });
+    } catch (e) {
+      throw apiError('NETWORK', 'Could not reach the exam server.');
     }
-    const res = await fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      // Deliberately text/plain — see transport note above.
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, ...body }),
-    });
-    if (!res.ok) throw new Error('Server returned ' + res.status);
-    const data = await res.json();          // throws on a non-JSON error page
-    if (!data.ok) throw new Error(data.error || 'Server rejected the request');
+    if (!res.ok) throw apiError('NETWORK', 'The exam server returned ' + res.status + '.');
+    let data;
+    try { data = await res.json(); } catch (e) {
+      throw apiError('SERVER_ERROR', 'The exam server sent an unreadable reply.');
+    }
+    if (!data.ok) throw apiError(data.code || 'SERVER_ERROR', data.error || 'The exam server refused the request.');
     return data;
   }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /* ---------------------------------------------------------------- mock -- */
 
@@ -102,12 +119,15 @@ const api = (() => {
       const ok = got !== null && got === k.correct_choice_id;
       if (ok) correct++;
 
-      const d = domains[item.domain] || (domains[item.domain] = { correct: 0, total: 0 });
+      // Domain travels with the key, as it does from the real server: the
+      // served form carries no domain labels.
+      const d = domains[k.domain] || (domains[k.domain] = { correct: 0, total: 0 });
       d.total++;
       if (ok) d.correct++;
 
       items.push({
         item_id: item.item_id,
+        domain: k.domain,
         correct_choice_id: k.correct_choice_id,
         key_rationale: k.key_rationale,
         rationales: k.rationales,
@@ -136,18 +156,27 @@ const api = (() => {
   return {
     isMock() { return CONFIG.BACKEND === 'mock'; },
 
-    async startAttempt({ name, email }) {
+    async startAttempt({ name, email, testerCode }) {
       if (CONFIG.BACKEND === 'mock') {
         await mockLoad();
-        // Simulate the server's roster gate and attempt-id issuance.
         return {
           ok: true,
           attempt_id: 'mock-' + Date.now(),
+          kind: testerCode ? 'test' : 'fellow',
           form: _mockForm,
           server_progress: null,
         };
       }
-      return post('start', { name, email });
+      // Eight fellows press Begin at once; the server handles them one at a
+      // time and may answer BUSY. Retry quietly before troubling anyone.
+      for (let i = 0; ; i++) {
+        try {
+          return await post('start', { name, email, tester_code: testerCode || '' });
+        } catch (err) {
+          if (err.code !== 'BUSY' || i >= 3) throw err;
+          await sleep(1500 + Math.random() * 1500);
+        }
+      }
     },
 
     /**
@@ -160,7 +189,7 @@ const api = (() => {
         sessionStorage.setItem('mock_server_progress', JSON.stringify(snapshot));
         return { ok: true };
       }
-      return post('progress', { snapshot });
+      return post('progress', { attempt_id: snapshot.attemptId, snapshot });
     },
 
     async submitAttempt(payload) {

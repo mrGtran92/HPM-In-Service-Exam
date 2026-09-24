@@ -22,6 +22,8 @@ const state = {
   highlights: {},     // item_id -> [[start, end], ...] offsets into the stem text
   fellowName: '',
   fellowEmail: '',
+  kind: 'fellow',     // 'fellow' | 'test' (tester runs are not counted)
+  testerCode: '',
   startedAt: null,
   submitted: false,
   result: null,       // server grading, populated after submit
@@ -37,11 +39,13 @@ const state = {
 
   /* ------------------------------------------------------------- setup -- */
 
-  begin({ attemptId, items, name, email, restore }) {
+  begin({ attemptId, items, name, email, kind, testerCode, restore }) {
     this.attemptId = attemptId;
     this.items = items;
     this.fellowName = name;
     this.fellowEmail = email;
+    this.kind = kind || 'fellow';
+    this.testerCode = testerCode || '';
     this.current = 0;
     this.answers = {};
     this.flags = {};
@@ -57,8 +61,10 @@ const state = {
       this.highlights = restore.highlights || {};
       this.current = Math.min(restore.current || 0, items.length - 1);
       if (restore.startedAt) this.startedAt = new Date(restore.startedAt);
-      if (restore.attemptId) this.attemptId = restore.attemptId;
     }
+    // The server's attempt id is authoritative. A local copy belonging to a
+    // different attempt (e.g. one the proctor reset) is never restored —
+    // launch() checks that before calling here.
     this._startServerBackup();
   },
 
@@ -141,6 +147,8 @@ const state = {
       attemptId: this.attemptId,
       email: this.fellowEmail,
       name: this.fellowName,
+      kind: this.kind,
+      testerCode: this.testerCode || undefined,
       answers: this.answers,
       flags: this.flags,
       strikes: this.strikes,

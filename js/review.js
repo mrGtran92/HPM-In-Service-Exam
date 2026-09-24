@@ -24,6 +24,9 @@ async function doSubmit() {
   const payload = state.submissionPayload();
   setSubmitStatus('pending', 'Submitting your answers…');
 
+  // Retrying cannot fix these: the attempt was reset or does not exist.
+  const PERMANENT = ['VOID', 'NOT_FOUND', 'BAD_REQUEST'];
+
   let lastErr = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
@@ -32,6 +35,7 @@ async function doSubmit() {
       return;
     } catch (err) {
       lastErr = err;
+      if (PERMANENT.includes(err.code)) break;
       if (attempt < RETRY_DELAYS_MS.length) {
         setSubmitStatus('pending',
           `Submission failed — retrying (${attempt + 1} of ${RETRY_DELAYS_MS.length})…`);
@@ -47,9 +51,17 @@ function onSubmitted(result) {
   state.result = result;
   state.result.byItem = {};
   result.items.forEach(i => { state.result.byItem[i.item_id] = i; });
+  // Domains arrive only now: the exam form carried none, so they could not
+  // cue answers. The review navigator groups by them.
+  state.items.forEach(it => {
+    const k = state.result.byItem[it.item_id];
+    if (k && k.domain) it.domain = k.domain;
+  });
   state.clearLocal();
 
-  setSubmitStatus('success', 'Your answers have been recorded.');
+  setSubmitStatus('success', state.kind === 'test'
+    ? 'Test run recorded. Test runs are kept separate and never counted as a fellow\'s result.'
+    : 'Your answers have been recorded.');
   window.addEventListener('beforeunload', resultsBeforeUnload);
   renderScore();
   renderSummaryGrid();
@@ -61,7 +73,8 @@ function onSubmitFailed(err, payload) {
   // the fellow is given a file they can hand to the program.
   setSubmitStatus('error',
     'Your answers could not be sent. They are still saved on this computer. '
-    + 'Please download the file below and give it to the program director — do not close this tab first.');
+    + 'Please download the file below and give it to the proctor — do not close this tab first.'
+    + (err && err.code ? ` (Code ${errorLetter(err.code)})` : ''));
   $('failed-actions').classList.remove('hidden');
   $('download-attempt').onclick = () => downloadAttempt(payload);
   $('retry-submit').onclick = () => doSubmit();
