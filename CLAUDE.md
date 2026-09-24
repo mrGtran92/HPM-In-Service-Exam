@@ -62,7 +62,7 @@ The full plan, including the threat model, lives at
 |---|---|---|
 | Stakes | Summative | Answer key must never reach the browser |
 | Administration | In person, all 8 at once, proctored | The room handles cheating |
-| Key release | Everything immediately on submit | Safe *because* everyone tests simultaneously |
+| Key release | Everything immediately on submit | Safe *because* everyone tests simultaneously. For a make-up day George chose an **honor code** (fellows asked not to share the review until the make-up is done) over an "answers visible" switch, Sep 23 2026 |
 | Identity | Typed email, roster-checked | No access code — proctor verifies identity. The roster is a **data-quality** control (catches typos that orphan a score), not a security one |
 | Options per item | Five (A–E) | Source bank uses 5; the pilot assumed 4 |
 | Timing | Soft timer, no cutoff | Records `duration_sec`, never force-submits |
@@ -117,7 +117,7 @@ the data already lives in Sheets and George maintains this alone.
 | `js/highlight.js` | Stem highlighter (offsets, never stored HTML) |
 | `js/exam.js` | Start gate, question rendering, keyboard |
 | `js/review.js` | Submission, results, rationale review |
-| `content/items.csv` | **THE MASTER item bank.** Gitignored (answer keys; repo is public). Edit here, never in Word |
+| `content/items.csv` | Snapshot imported into the Sheet's Items tab, which is now the master. Gitignored (answer keys; repo is public) |
 | `content/roster.csv` | 8 fellows (email, name, role). Gitignored. Seeds the Sheet's Roster tab |
 | `content/history/` | Record of the text corrections baked in at retirement |
 | `tools/parse_docx.py` | **Retired** Word → CSV migration. Refuses to overwrite `content/items.csv` |
@@ -151,6 +151,10 @@ Check whether a server is already running before starting one:
   `kind=test`, never counted. Deliberately not a named-email backdoor: with typed
   emails and no passwords, a fellow could impersonate a named tester and see the key.
 - **Submit is idempotent**: a retried submit returns the stored result.
+- **Make-up day**: Open exam again (submitted fellows stay blocked), and do NOT
+  publish a new version between the main day and the make-up.
+- **Test data never needs clearing** (~600 cells per attempt; Sheets allows 10M). If
+  George wants it tidied, before exam day only, whole `kind=test` rows.
 - **Results tab** (`menuBuildResults` / `buildResults_`): rebuilt from scratch from
   Responses + Attempts; fellows' submitted attempts only (void and test excluded),
   with a labelled test-run preview when no fellow results exist. The per-fellow chart
@@ -176,9 +180,8 @@ Check whether a server is already running before starting one:
   with `javascript_tool` to verify; take screenshots as their own call.
 - **Regenerate fixtures after content changes**, or the preview shows old questions:
   `python3 tools/validate_items.py content/items.csv && python3 tools/make_mock_form.py content/items.csv`
-- **`content/items.csv` has no backup by default.** It is not in git and this Mac's
-  Desktop is not synced to iCloud. Remind George to keep a copy elsewhere until the
-  bank moves into the Google Sheet (Phase 2), which then becomes the master.
+- **The item bank now lives in the Google Sheet** (Items tab), so it is backed up by
+  Google. `content/` on this Mac is a local snapshot only.
 - **Excel's plain "CSV" format is not UTF-8** and mangles ≤, ×, μ and dashes. Save as
   "CSV UTF-8", or edit in Numbers/Google Sheets. The validator rejects a non-UTF-8 file.
 - **Tester codes must contain letters.** Sheets turns `0123` into the number 123.
@@ -193,7 +196,8 @@ Check whether a server is already running before starting one:
 ## Open items
 
 **Content, owned by faculty:**
-- **`content/items.csv` is the master (George's decision, Sep 23 2026).** The Word
+- **The Sheet's Items tab is the master question bank** (imported Sep 23 2026). Edit there, then Publish. `content/items.csv` is now only the snapshot it was imported from.
+- Earlier the same day: **`content/items.csv` was made the master (George's decision, Sep 23 2026).** The Word
   file is retired as a source. 54 items. The two pending key corrections are settled
   and confirmed by George. The Sep 23 typo fixes and content decisions are baked in;
   the list is in `content/history/` (gitignored).
