@@ -41,7 +41,7 @@ administration needs over nice-to-haves.
 | 1 — Word → CSV converter + validator | **Done; converter retired Sep 23 2026.** Commit `59bb20f` |
 | 3 — 55-item UI, autosave, submission | **Done.** Commits `2ccef8e`, `17ee445`, `824bee8`, `c35ea15` |
 | 3b — 54-item revision, reference window, exam tools, full-review PDF | **Done** (Sep 23 2026) |
-| 2 — Apps Script backend | **Not started.** Needs George's Google account |
+| 2 — Apps Script backend | **Built and tested against a fake Sheet** (`tests/gas-fake.js`). Next: deploy with George, set `SCRIPT_URL`, full rehearsal |
 | 4 — item analysis | Not started |
 
 Work happens on branch `rebuild`, which branches off `main`. **`main` still serves the
@@ -135,6 +135,28 @@ specifically because browsers block `fetch()` on `file://` URLs.
 Check whether a server is already running before starting one:
 `lsof -nP -i :8777`
 
+## Phase 2 backend — how it works
+
+- **`apps-script/Code.gs`** is pasted into the Sheet's Apps Script editor as ONE file.
+  After changing it, George redeploys with *Manage deployments › New version* (same
+  URL). A *New deployment* changes the URL and breaks the page.
+- **Grading happens only in Code.gs.** The served form has `item_id`, `stem`,
+  `choices` — no key, rationales, titles or domains (titles and domains cue answers).
+  Domains reach the page in the submit reply.
+- **Switches live in the Config tab**: `exam_open` (fellows only; closing stops new
+  starts but never blocks resume or submit), `tester_code`, `form_version`.
+- **Testers**: page URL + `#tester` reveals a code box. Any email, unlimited runs,
+  `kind=test`, never counted. Deliberately not a named-email backdoor: with typed
+  emails and no passwords, a fellow could impersonate a named tester and see the key.
+- **Submit is idempotent**: a retried submit returns the stored result.
+- **Error codes → letters** in `ERROR_MESSAGES` (js/ui.js); RUNBOOK and
+  `docs/exam-day-guide.html` list the fix for each. Keep all three in sync.
+- **Testing without Google**: `tests/gas-fake.js` runs the real Code.gs against
+  in-memory tabs inside the exam page and routes the page's fetches to it. It caught
+  a progress-save bug (missing `attempt_id`) that would have silently disabled server
+  backup and the status board in production. Seed data must come from
+  `content/` into a scratch copy, never into the repo.
+
 ## Gotchas that have already cost time
 
 - **Asset caching.** `index.html` references css/js with `?v=<datestamp>`. **Bump it on
@@ -151,6 +173,7 @@ Check whether a server is already running before starting one:
   bank moves into the Google Sheet (Phase 2), which then becomes the master.
 - **Excel's plain "CSV" format is not UTF-8** and mangles ≤, ×, μ and dashes. Save as
   "CSV UTF-8", or edit in Numbers/Google Sheets. The validator rejects a non-UTF-8 file.
+- **Tester codes must contain letters.** Sheets turns `0123` into the number 123.
 - **The in-app preview cannot read `~/Desktop`** (macOS privacy block — the server
   starts but returns errors). To preview from Claude, copy `index.html css js dev` to
   the scratchpad and serve from there. George's own Terminal is unaffected.
@@ -176,9 +199,11 @@ Check whether a server is already running before starting one:
   the new PDF each January.
 
 **Engineering:**
-- Phase 2 backend, then flip `CONFIG.BACKEND` to `'live'`.
-- Rotate the Apps Script deployment URL. The current one has been public in the repo
-  since June and is unauthenticated.
-- `docs/RUNBOOK.md` is still a stub; it must be complete before the first administration.
+- **Deploy Phase 2 with George** (RUNBOOK Part 1), paste the `/exec` URL into
+  `CONFIG.SCRIPT_URL` (that alone switches the page to live), then a full rehearsal
+  with 2–3 testers.
+- Archive the pilot's old Apps Script deployment once the switch is made; its URL has
+  been public since June and is unauthenticated.
+- Pushing to GitHub (GitHub Desktop) is needed before fellows can open the page.
 - Governance: the Sheet is on a personal Gmail account, not UCLA Workspace. Raised
   twice, George is aware. Do not keep pressing it.

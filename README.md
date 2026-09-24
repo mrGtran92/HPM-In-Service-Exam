@@ -35,7 +35,7 @@ resume.
 | **0** | Repo, split into separate files, version control | Done |
 | **1** | Word document → spreadsheet converter, content validator | Done (converter now retired) |
 | **3** | 55-item interface, autosave, reliable submission | Done |
-| **2** | Google Sheet + Apps Script: hidden answer key, one attempt per fellow | **Next** |
+| **2** | Google Sheet + Apps Script: hidden answer key, one attempt per fellow, tester code, exam-day tools | **Built; deploying** |
 | **4** | Item analysis — which questions were too easy, too hard, or not discriminating | Later |
 
 ### Phase 3 in brief
@@ -91,6 +91,9 @@ before each administration.
 | `js/highlight.js` | Stem highlighter |
 | `js/exam.js` / `js/review.js` | Exam screen / results and review |
 | `tools/` | Content conversion and validation |
+| `apps-script/Code.gs` | The server: pasted into the Google Sheet's Apps Script editor |
+| `docs/RUNBOOK.md` | Setup, exam day, troubleshooting. `docs/exam-day-guide.html` is the printable one-pager |
+| `tests/gas-fake.js` | Runs Code.gs in a browser against a fake Sheet, for testing without Google |
 | `dev/` | Local practice data. Gitignored — contains answer keys |
 
 `CLAUDE.md` holds the working context: decisions made, invariants, and known pitfalls.

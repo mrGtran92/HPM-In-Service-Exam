@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Exam Day Guide</title>
+<!-- One-page desk reference for the proctor. Open in a browser and print
+     (it is laid out for a single US Letter page). Full detail: RUNBOOK.md. -->
+<style>
+  :root { --ink:#1c1c1c; --ink-2:#555; --line:#cfcac4; --accent:#185fa5; --bg:#fff; --soft:#f3f2ef; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+         color: var(--ink); background: var(--bg); font-size: 10.5pt; line-height: 1.38;
+         max-width: 7.6in; margin: 0 auto; padding: 0.35in 0.2in; }
+  h1 { font-size: 16pt; font-weight: 650; }
+  .sub { color: var(--ink-2); font-size: 9.5pt; margin: 2px 0 10px; }
+  h2 { font-size: 11pt; font-weight: 650; color: var(--accent); margin: 10px 0 4px;
+       text-transform: uppercase; letter-spacing: .04em; }
+  ol, ul { padding-left: 1.2em; }
+  li { margin: 2px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.8pt; }
+  th, td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; background: var(--soft); }
+  td.code { font-weight: 700; font-size: 12pt; width: 30px; text-align: center; }
+  td.msg { width: 34%; color: var(--ink-2); }
+  .menu { font-weight: 600; white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+  .box { background: var(--soft); border-radius: 6px; padding: 6px 9px; margin-top: 6px; font-size: 9.5pt; }
+  @media print { body { padding: 0; } @page { size: letter; margin: 0.45in; } }
+</style>
+</head>
+<body>
+
+<h1>HPM In-Service Exam — Exam Day Guide</h1>
+<p class="sub">Keep the Google Sheet open on the <b>Exam day</b> tab. Every action is under the <b>HPM Exam</b> menu.</p>
+
+<h2>Running the exam</h2>
+<ol>
+  <li><b>Day before:</b> <span class="menu">Pre-exam check</span> — all ✓. Then <span class="menu">Turn tester access off</span>.</li>
+  <li>Fellows open the link and enter name + email. They'll see <b>Code C</b> ("not opened yet") — expected.</li>
+  <li>When everyone is seated: <span class="menu">Open exam</span>. Fellows click <b>Begin</b> again.</li>
+  <li>Watch <b>Exam day</b>: Not started → In progress (answered, last saved) → Submitted (score).</li>
+  <li>After the last submission: <span class="menu">Close exam</span>. Results are in the <b>Attempts</b> tab.</li>
+</ol>
+
+<h2>Error codes on a fellow's screen</h2>
+<table>
+  <tr><th></th><th>They see</th><th>Do this</th></tr>
+  <tr><td class="code">R</td><td class="msg">Email isn't on the exam list</td><td>Likely a typo. Compare with the <b>Roster</b> tab; fix the roster if it's wrong. Click Begin again.</td></tr>
+  <tr><td class="code">C</td><td class="msg">Exam hasn't been opened yet</td><td><span class="menu">Open exam</span>.</td></tr>
+  <tr><td class="code">S</td><td class="msg">Already submitted with this email</td><td>If you allow it: <span class="menu">Allow a retake…</span> (they've already seen the answers).</td></tr>
+  <tr><td class="code">B</td><td class="msg">Server is busy</td><td>Wait 5 seconds, click Begin again.</td></tr>
+  <tr><td class="code">N</td><td class="msg">Can't reach the exam server</td><td>Wi-Fi. Answers are safe on the laptop — keep working. If submit fails, see below.</td></tr>
+  <tr><td class="code">V</td><td class="msg">Attempt was reset by the proctor</td><td>Expected after a retake. Reload the page and start again.</td></tr>
+  <tr><td class="code">A</td><td class="msg">Attempt not recognised</td><td>Download answers if offered; reload; Begin again with the same email.</td></tr>
+  <tr><td class="code">F</td><td class="msg">Exam isn't set up</td><td><span class="menu">Publish exam version…</span></td></tr>
+  <tr><td class="code">X</td><td class="msg">Something went wrong on the server</td><td>Note the message. Try again in a minute. Open the <code>/exec</code> link to check the server.</td></tr>
+</table>
+
+<h2>Common situations</h2>
+<div class="grid">
+  <div><b>Laptop dies / browser crashes.</b> Open the link on any computer, same email → continues where they left off (a different computer may lose the last ~30 s).</div>
+  <div><b>Page won't load at all.</b> That computer or its Wi-Fi. Try another browser or a spare laptop.</div>
+  <div><b>Submit failed.</b> Fellow clicks <b>Download my answers</b> and gives you the file. Open it in TextEdit → select all → copy → <span class="menu">Add a submission from a downloaded file…</span> → paste.</div>
+  <div><b>Submitted by accident.</b> Your call: <span class="menu">Allow a retake…</span> voids it (kept, marked void); they restart at Q1.</div>
+</div>
+
+<div class="box"><b>Tester link:</b> exam address + <code>#tester</code>, with the code in Config › <code>tester_code</code>. Test runs are never counted. &nbsp;·&nbsp; <b>Log:</b> every open, close, publish and retake is in <b>AuditLog</b>.</div>
+
+</body>
+</html>
