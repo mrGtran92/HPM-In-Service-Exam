@@ -13,3 +13,6 @@ dev/
 # The item bank master (questions, answer keys, rationales). Never commit:
 # this repo is public. Back it up outside git.
 content/
+
+# RStudio session history
+.Rhistory
