@@ -151,6 +151,12 @@ Check whether a server is already running before starting one:
   `kind=test`, never counted. Deliberately not a named-email backdoor: with typed
   emails and no passwords, a fellow could impersonate a named tester and see the key.
 - **Submit is idempotent**: a retried submit returns the stored result.
+- **Results tab** (`menuBuildResults` / `buildResults_`): rebuilt from scratch from
+  Responses + Attempts; fellows' submitted attempts only (void and test excluded),
+  with a labelled test-run preview when no fellow results exist. The per-fellow chart
+  is driven by INDEX/MATCH formulas off a dropdown cell, so it is interactive with no
+  triggers. Shared with faculty as Viewer (George's choice; they can see the key).
+  Chart/colour appearance can only be checked in real Sheets.
 - **Error codes → letters** in `ERROR_MESSAGES` (js/ui.js); RUNBOOK and
   `docs/exam-day-guide.html` list the fix for each. Keep all three in sync.
 - **Testing without Google**: `tests/gas-fake.js` runs the real Code.gs against

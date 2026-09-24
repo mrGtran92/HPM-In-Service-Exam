@@ -16,6 +16,8 @@
  *   Responses   one row per question per submitted attempt (for re-scoring
  *               and item analysis)
  *   Exam day    live status board, rebuilt on every save
+ *   Results     score grid, fellow-vs-class chart and most-missed questions,
+ *               built on demand from HPM Exam > Build results dashboard
  *   AuditLog    every publish, open/close, retake and manual submission
  *
  * Web requests (from js/api.js, POSTed as text/plain JSON):
@@ -29,7 +31,7 @@
 
 const TAB = {
   CONFIG: 'Config', ROSTER: 'Roster', ITEMS: 'Items', ATTEMPTS: 'Attempts',
-  RESPONSES: 'Responses', STATUS: 'Exam day', AUDIT: 'AuditLog',
+  RESPONSES: 'Responses', STATUS: 'Exam day', AUDIT: 'AuditLog', RESULTS: 'Results',
 };
 const FORM_PREFIX = 'Form ';
 const CHOICES = ['a', 'b', 'c', 'd', 'e'];
@@ -444,12 +446,219 @@ function refreshStatus_() {
 }
 
 /* ======================================================================== *
+ *  Results dashboard
+ *
+ *  Rebuilt from scratch on each run, from Responses (the per-question record)
+ *  joined to Attempts. Counts fellows' submitted attempts only — never test
+ *  runs or attempts voided by "Allow a retake" — unless George asks for a
+ *  preview built from test runs.
+ * ======================================================================== */
+
+const SCORE_BANDS = [   // same thresholds and colors as the fellow's results screen
+  { min: 0.8, bg: '#E1F5EE', fg: '#085041' },
+  { min: 0.6, bg: '#FAEEDA', fg: '#633806' },
+  { min: 0,   bg: '#FCEBEB', fg: '#A32D2D' },
+];
+
+function menuBuildResults() {
+  const ui = SpreadsheetApp.getUi();
+  const attempts = readTable_(TAB.ATTEMPTS).rows.filter(a => a.status === 'submitted');
+  let chosen = attempts.filter(a => a.kind === 'fellow');
+  let preview = false;
+  if (!chosen.length) {
+    const tests = attempts.filter(a => a.kind === 'test');
+    if (!tests.length) { ui.alert('There are no submitted attempts yet.'); return; }
+    const ok = ui.alert('No fellow results yet',
+      'Build a PREVIEW from the ' + tests.length + ' submitted test run(s)? It will be clearly labelled as a preview, '
+      + 'and building again after the exam replaces it with the real results.', ui.ButtonSet.YES_NO);
+    if (ok !== ui.Button.YES) return;
+    chosen = tests;
+    preview = true;
+  }
+  const n = buildResults_(chosen, preview);
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TAB.RESULTS).activate();
+  ui.alert('Results built for ' + n + (preview ? ' test run(s) (preview).' : ' fellow(s).'));
+}
+
+function buildResults_(attempts, preview) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const tz = ss.getSpreadsheetTimeZone();
+
+  // ---- gather ------------------------------------------------------------
+  const byAttempt = {};
+  attempts.forEach(a => { byAttempt[a.attempt_id] = { a, rows: [] }; });
+  readTable_(TAB.RESPONSES).rows.forEach(r => { if (byAttempt[r.attempt_id]) byAttempt[r.attempt_id].rows.push(r); });
+
+  // Unique, readable row labels (a tester may have several runs).
+  const seen = {};
+  const people = attempts.map(a => {
+    const base = a.name || a.email;
+    seen[base] = (seen[base] || 0) + 1;
+    return { a, label: base, rows: byAttempt[a.attempt_id].rows };
+  });
+  people.forEach(p => {
+    if (seen[p.label] > 1) p.label += ' (' + Utilities.formatDate(new Date(p.a.submitted_at), tz, 'MMM d h:mm a') + ')';
+  });
+  people.sort((x, y) => x.label.localeCompare(y.label));
+
+  const domainCounts = {};
+  people.forEach(p => p.rows.forEach(r => { domainCounts[r.domain] = true; }));
+  const domains = DOMAIN_ORDER.filter(d => domainCounts[d])
+    .concat(Object.keys(domainCounts).filter(d => DOMAIN_ORDER.indexOf(d) === -1));
+  const nPerDomain = {};
+  if (people.length) people[0].rows.forEach(r => { nPerDomain[r.domain] = (nPerDomain[r.domain] || 0) + 1; });
+
+  const frac = (rows) => rows.length ? rows.filter(r => r.is_correct === true || r.is_correct === 'TRUE').length / rows.length : '';
+  people.forEach(p => {
+    p.byDomain = domains.map(d => frac(p.rows.filter(r => r.domain === d)));
+    p.overall = frac(p.rows);
+  });
+  const mean = xs => { const v = xs.filter(x => x !== ''); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : ''; };
+  const classAvg = domains.map((_, i) => mean(people.map(p => p.byDomain[i])));
+  const classOverall = mean(people.map(p => p.overall));
+
+  // ---- fresh tab ---------------------------------------------------------
+  const old = ss.getSheetByName(TAB.RESULTS);
+  if (old) ss.deleteSheet(old);
+  const sh = ss.insertSheet(TAB.RESULTS);
+  const W = domains.length + 2;                       // label + domains + overall
+  let row = 1;
+
+  sh.getRange(row, 1).setValue((preview ? 'PREVIEW FROM TEST RUNS — not fellow results. ' : '')
+    + 'Results for ' + people.length + (preview ? ' test run(s)' : ' fellow(s)')
+    + ' · built ' + Utilities.formatDate(new Date(), tz, 'MMM d, yyyy h:mm a')
+    + ' · rebuild with HPM Exam › Build results dashboard').setFontWeight('bold');
+  row += 2;
+
+  // ---- 1. score grid -----------------------------------------------------
+  sh.getRange(row, 1).setValue('1. Score grid — % correct in each content area').setFontWeight('bold');
+  row++;
+  sh.getRange(row, 1, 1, W).setValues([['Fellow']
+    .concat(domains.map(d => d + ' (n=' + (nPerDomain[d] || 0) + ')'))
+    .concat(['Overall (n=' + (people[0] ? people[0].rows.length : 0) + ')'])])
+    .setFontWeight('bold').setWrap(true);
+  row++;
+  const firstPerson = row;
+  if (people.length) {
+    sh.getRange(row, 1, people.length, W).setValues(people.map(p => [p.label].concat(p.byDomain).concat([p.overall])));
+    row += people.length;
+  }
+  const avgRow = row;
+  sh.getRange(row, 1, 1, W).setValues([['Class average'].concat(classAvg).concat([classOverall])]).setFontWeight('bold');
+  row++;
+  const scoreRange = sh.getRange(firstPerson, 2, avgRow - firstPerson + 1, W - 1);
+  scoreRange.setNumberFormat('0%').setHorizontalAlignment('center');
+
+  sh.setConditionalFormatRules(SCORE_BANDS.map((b, i) => {
+    const rule = SpreadsheetApp.newConditionalFormatRule().setBackground(b.bg).setFontColor(b.fg).setRanges([scoreRange]);
+    if (i === 0) return rule.whenNumberGreaterThanOrEqualTo(b.min).build();
+    return rule.whenNumberBetween(b.min, SCORE_BANDS[i - 1].min - 0.0001).build();
+  }));
+  sh.getRange(row, 1).setValue('Green ≥ 80%, amber 60–79%, red < 60%. Areas with n < 4 are too small to read much into.')
+    .setFontStyle('italic').setFontColor('#6B6560');
+  row += 2;
+
+  // ---- 2. one fellow vs class ----------------------------------------------
+  sh.getRange(row, 1).setValue('2. One fellow against the class average — choose a name in the yellow cell').setFontWeight('bold');
+  row++;
+  const pickRow = row;
+  const pick = sh.getRange(pickRow, 2);
+  sh.getRange(pickRow, 1).setValue('Fellow:');
+  if (people.length) {
+    pick.setValue(people[0].label)
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(people.map(p => p.label), true).build());
+  }
+  pick.setBackground('#FFF3B0').setFontWeight('bold');
+  row += 2;
+
+  const cmpHeader = row;
+  sh.getRange(row, 1, 1, 3).setValues([['Content area', 'Selected fellow', 'Class average']]).setFontWeight('bold');
+  row++;
+  const names = a1_(firstPerson, 1) + ':' + a1_(avgRow - 1, 1);
+  const cmp = domains.map((d, i) => {
+    const col = i + 2;
+    const block = a1_(firstPerson, col) + ':' + a1_(avgRow - 1, col);
+    return [d,
+      '=IFERROR(INDEX(' + block + ', MATCH(' + a1_(pickRow, 2) + ', ' + names + ', 0)), "")',
+      '=' + a1_(avgRow, col)];
+  });
+  if (cmp.length) {
+    sh.getRange(row, 1, cmp.length, 1).setValues(cmp.map(r => [r[0]]));
+    sh.getRange(row, 2, cmp.length, 2).setFormulas(cmp.map(r => [r[1], r[2]]));
+    sh.getRange(row, 2, cmp.length, 2).setNumberFormat('0%').setHorizontalAlignment('center');
+  }
+  const chart = sh.newChart()
+    .setChartType(Charts.ChartType.BAR)
+    .addRange(sh.getRange(cmpHeader, 1, cmp.length + 1, 3))
+    .setNumHeaders(1)
+    .setPosition(pickRow, 5, 0, 0)
+    .setOption('title', 'Selected fellow vs class average')
+    .setOption('hAxis', { minValue: 0, maxValue: 1, format: 'percent' })
+    .setOption('colors', ['#185FA5', '#B0ACA8'])
+    .setOption('legend', { position: 'top' })
+    .setOption('width', 620).setOption('height', 340)
+    .build();
+  sh.insertChart(chart);
+  row += cmp.length + 2;
+  row = Math.max(row, pickRow + 19);                  // leave room below the chart
+
+  // ---- 3. most-missed questions -------------------------------------------
+  sh.getRange(row, 1).setValue('3. Questions, hardest first').setFontWeight('bold');
+  row++;
+  const titles = {}, keys = {};
+  const version = (attempts[0] || {}).form_version;
+  const formSheet = version && ss.getSheetByName(FORM_PREFIX + version);
+  if (formSheet) {
+    tableFromValues_(formSheet.getDataRange().getValues()).rows.forEach(r => {
+      titles[String(r.item_id)] = r.title;
+      keys[String(r.item_id)] = String(r.correct_choice_id).toUpperCase();
+    });
+  }
+  const perItem = {};
+  people.forEach(p => p.rows.forEach(r => {
+    const id = String(r.item_id);
+    const q = perItem[id] || (perItem[id] = { id: Number(r.item_id), domain: r.domain, n: 0, right: 0, wrong: {}, blank: 0,
+      key: keys[id] || String(r.correct_choice || '').toUpperCase() });
+    q.n++;
+    if (r.is_correct === true || r.is_correct === 'TRUE') q.right++;
+    else if (!r.chosen) q.blank++;
+    else { const c = String(r.chosen).toUpperCase(); q.wrong[c] = (q.wrong[c] || 0) + 1; }
+  }));
+  const items = Object.keys(perItem).map(k => perItem[k])
+    .sort((x, y) => (x.right / x.n) - (y.right / y.n) || x.id - y.id);
+  const qHeader = ['Question', 'Topic', 'Content area', '% correct', 'Correct answer', 'Most common wrong answer', 'Chose it', 'Left blank'];
+  sh.getRange(row, 1, 1, qHeader.length).setValues([qHeader]).setFontWeight('bold');
+  row++;
+  if (items.length) {
+    sh.getRange(row, 1, items.length, qHeader.length).setValues(items.map(q => {
+      const top = Object.keys(q.wrong).sort((a, b) => q.wrong[b] - q.wrong[a])[0];
+      return ['Q' + q.id, titles[String(q.id)] || '', q.domain, q.right / q.n, q.key,
+        top || '—', top ? q.wrong[top] + ' of ' + q.n : '', q.blank || ''];
+    }));
+    sh.getRange(row, 4, items.length, 1).setNumberFormat('0%').setHorizontalAlignment('center');
+  }
+
+  sh.setColumnWidth(1, 190);
+  for (let c = 3; c <= W; c++) sh.setColumnWidth(c, 110);
+  sh.setColumnWidth(2, 200);                          // also section 3's Topic column
+  return people.length;
+}
+
+/** Row/column (1-based) to an absolute A1 reference, e.g. (5, 2) -> $B$5. */
+function a1_(row, col) {
+  let s = '', c = col;
+  while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); }
+  return '$' + s + '$' + row;
+}
+
+/* ======================================================================== *
  *  Menu (runs when George opens the Sheet)
  * ======================================================================== */
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('HPM Exam')
     .addItem('Refresh exam-day status', 'menuRefreshStatus')
+    .addItem('Build results dashboard', 'menuBuildResults')
     .addSeparator()
     .addItem('Open exam (fellows can start)', 'menuOpenExam')
     .addItem('Close exam', 'menuCloseExam')

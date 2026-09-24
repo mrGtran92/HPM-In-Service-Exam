@@ -58,10 +58,32 @@
       return this;
     }
     setFontWeight() { return this; }
+    setValue(v) { return this.setValues([[v]]); }
+    /** Formulas are stored as text; tests evaluate the ones they care about. */
+    setFormulas(f) { return this.setValues(f); }
+    setDataValidation(rule) { this.sheet.validations[`${this.r},${this.c}`] = rule; return this; }
+  }
+  // Formatting calls are accepted and ignored — only values are checked.
+  ['setNumberFormat', 'setHorizontalAlignment', 'setWrap', 'setFontStyle', 'setFontColor', 'setBackground']
+    .forEach(m => { Range.prototype[m] = function () { return this; }; });
+
+  /** A builder that records every call and returns itself; build() gives the record. */
+  function recorder(kind) {
+    const rec = { kind, calls: [] };
+    const p = new Proxy({}, {
+      get: (_, name) => name === 'build' ? () => rec
+        : (...args) => { rec.calls.push([name, args]); return p; },
+    });
+    return p;
   }
 
   class Sheet {
-    constructor(name) { this.name = name; this.data = []; this.frozen = 0; }
+    constructor(name) { this.name = name; this.data = []; this.frozen = 0; this.charts = []; this.rules = []; this.validations = {}; }
+    newChart() { return recorder('chart'); }
+    insertChart(c) { this.charts.push(c); }
+    getCharts() { return this.charts.slice(); }
+    setConditionalFormatRules(r) { this.rules = r; }
+    setColumnWidth() { return this; }
     getName() { return this.name; }
     getLastRow() {
       for (let i = this.data.length - 1; i >= 0; i--) {
@@ -117,7 +139,12 @@
   let lockBusy = false;
 
   const globals = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, getUi: () => ui },
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => ss, getUi: () => ui,
+      newConditionalFormatRule: () => recorder('conditional format'),
+      newDataValidation: () => recorder('data validation'),
+    },
+    Charts: { ChartType: { BAR: 'BAR' } },
     LockService: { getScriptLock: () => ({ tryLock: () => !lockBusy, releaseLock: () => {} }) },
     CacheService: {
       getScriptCache: () => ({
