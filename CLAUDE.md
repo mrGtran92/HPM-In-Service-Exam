@@ -75,6 +75,8 @@ The full plan, including the threat model, lives at
 | Domain labels | Hidden during the exam; after submit only in the score breakdown, not on each reviewed question | Seeing "Ethics & law" before the stem cues the answer — a validity issue, not cosmetic |
 | Content column width | Do NOT widen | Measured: line length is already at the top of the comfortable range. The empty margins are doing useful work; bigger type is the fix for density |
 | Google Sheet | Fresh one; old kept as archive | New structure shares almost nothing with the pilot sheet |
+| Question order | Mixed once at Publish (`mixOrder_`), frozen in the Form tab, same for every fellow; no two neighbours share a content area | George, Sep 24 2026: Items is grouped by topic, which cued fellows. One shared order (not per-fellow) keeps "Question 12" meaning the same thing in debriefs and the Results tab; per-fellow shuffling would be anti-cheating machinery the room already covers |
+| Calculator Enter key | Always "=", even when a calculator button has focus | A mouse click leaves focus on the clicked button; Enter used to re-press it, so after clicking C, Enter wiped the entry (George found it, Sep 24 2026) |
 
 ## Architecture
 

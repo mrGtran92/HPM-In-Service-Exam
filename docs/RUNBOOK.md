@@ -63,6 +63,11 @@ answer, explanations for each wrong choice) and freezes a copy in a tab called
 so editing Items afterwards never changes anyone's score. After editing Items,
 publish again.
 
+Publishing also **mixes the question order** so questions are not grouped by
+content area, and no two questions in a row share one. The Form tab's rows are
+the exact order fellows see, and every fellow gets that same order. Each publish
+makes a new mix, so do not publish between the main day and a make-up day.
+
 ### 5. Deploy the script as a web app
 
 In the Apps Script tab:
@@ -141,7 +146,8 @@ Results are in **Attempts** (one row per fellow: score and each domain).
 2. **One fellow vs the class** — pick a name in the yellow cell; the chart redraws.
 3. **Questions, hardest first** — class % correct, the correct answer, and the most
    common wrong answer. If most of the class chose the same wrong answer, the
-   question or its key deserves a second look.
+   question or its key deserves a second look. Questions are labelled the way
+   fellows saw them, with the Items-tab number in brackets: *Q12 (item 7)*.
 
 It counts fellows' submitted attempts only (not test runs, not reset attempts).
 Click it again whenever new submissions arrive — it rebuilds the tab from scratch.

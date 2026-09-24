@@ -176,8 +176,9 @@ const refWindow = (() => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = /^[0-9]$/.test(e.key) ? e.key : KEY_MAP[e.key];
       if (k === undefined || k === null) return;
-      // Enter on a focused calculator button should press that button, not "=".
-      if (e.key === 'Enter' && e.target.closest('[data-k]')) return;
+      // Enter is always "=", even when a button has focus. A mouse click leaves
+      // focus on the button clicked, so "Enter presses the focused button" made
+      // Enter re-press C and wipe the entry. Space still presses a focused button.
       e.preventDefault();
       calcPress(k);
     });
