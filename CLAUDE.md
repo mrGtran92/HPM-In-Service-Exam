@@ -142,7 +142,8 @@ Check whether a server is already running before starting one:
 ## Phase 2 backend — how it works
 
 - **`apps-script/Code.gs`** is pasted into the Sheet's Apps Script editor as ONE file.
-  After changing it, George redeploys with *Manage deployments › New version* (same
+  After changing it, George redeploys with *Deploy › Manage deployments › pencil icon ›
+  Version: New version › Deploy* — give him every click; the short form lost him once (same
   URL). A *New deployment* changes the URL and breaks the page.
 - **Grading happens only in Code.gs.** The served form has `item_id`, `stem`,
   `choices` — no key, rationales, titles or domains (titles and domains cue answers).
