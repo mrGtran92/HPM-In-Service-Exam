@@ -15,8 +15,6 @@ const CONFIG = {
   // a NEW deployment of apps-script/Code.gs.
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw7_9qCrZZfyrpKO5DYiu4KBDeyZTK-p344fJE3q4CmZ_c6jC_SWCcaRudJjiMJBNKF/exec',
 
-  ALLOWED_DOMAIN: 'mednet.ucla.edu',
-
   // Local autosave fires on every change; the server backup is throttled.
   SERVER_SAVE_INTERVAL_MS: 30000,
 
