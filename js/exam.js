@@ -64,12 +64,11 @@ function validateEmail() {
   const errEl = $('email-error');
   const input = $('fellow-email');
   if (!val) { errEl.textContent = ''; input.classList.remove('error'); return true; }
-  const bad = TESTER_MODE
-    ? !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)
-    : !val.toLowerCase().endsWith('@' + CONFIG.ALLOWED_DOMAIN);
+  // Any address shape is accepted here; the server's roster check decides who
+  // may sit the exam, so a non-MedNet colleague only needs adding to the Roster tab.
+  const bad = !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val);
   if (bad) {
-    errEl.textContent = TESTER_MODE ? 'Please enter a valid email address.'
-                                    : 'Please use your @' + CONFIG.ALLOWED_DOMAIN + ' address.';
+    errEl.textContent = 'Please enter a valid email address.';
     input.classList.add('error');
     input.setAttribute('aria-invalid', 'true');
     return false;
